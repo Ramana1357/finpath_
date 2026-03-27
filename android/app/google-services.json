@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "38544465994",
+    "project_id": "finpath-58f47",
+    "storage_bucket": "finpath-58f47.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:38544465994:android:8ca8d10d11be96822246b3",
+        "android_client_info": {
+          "package_name": "com.finpath.finpath"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcbXICKiKKdDAP94SHXqmJCJ6MFOpWKEo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

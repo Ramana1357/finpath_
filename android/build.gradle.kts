@@ -15,8 +15,29 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+subprojects {
+    val fixNamespace = {
+        if (project.extensions.findByName("android") != null) {
+            val android = project.extensions.getByName("android") as com.android.build.gradle.BaseExtension
+            if (android.namespace == null) {
+                val groupName = project.group.toString()
+                android.namespace = if (groupName.isNotEmpty()) groupName else "com.finpath.finpath.${project.name.replace("-", ".")}"
+            }
+        }
+    }
+
+    if (project.state.executed) {
+        fixNamespace()
+    } else {
+        project.afterEvaluate {
+            fixNamespace()
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {
