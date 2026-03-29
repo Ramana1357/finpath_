@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 //comment by ramana to verify the changes hello
 
@@ -66,13 +67,18 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
 
-  void _incrementCounter() {
+  void _incrementCounter() async {
+    try {
+      // Attempts to write a timestamp to Firestore
+      await FirebaseFirestore.instance.collection('health_check').doc('test').set({
+        'last_seen': DateTime.now().toIso8601String(),
+      });
+      print('Firebase Status: Properly Connected ✅');
+    } catch (e) {
+      print('Firebase Status: Action Required - Connection Failed: $e ❌');
+    }
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
       _counter++;
     });
   }
