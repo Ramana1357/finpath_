@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/services.dart'; // For the Kotlin Bridge
-import 'package:permission_handler/permission_handler.dart'; // For the pop-up
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'models/transaction.dart';
+import 'screens/dashboard_screen.dart'; // Import the new screen
 
-// Global database variable for easy access
 late final Isar isarDB;
 
 void main() async {
@@ -29,27 +29,27 @@ class FinPathApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FinPath Gateway',
-      theme: ThemeData(primarySwatch: Colors.deepPurple),
-      home: const LoginScreen(),
+      debugShowCheckedModeBanner: false,
+      title: 'FINPATH',
+      theme: ThemeData(
+        primaryColor: const Color(0xFF006D77),
+        fontFamily: 'Roboto',
+      ),
+      home: const MainEngine(),
     );
   }
 }
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class MainEngine extends StatefulWidget {
+  const MainEngine({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<MainEngine> createState() => _MainEngineState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  String _statusMessage = "Not logged in";
-
-  // 1. Connect to the Kotlin Bridge
+class _MainEngineState extends State<MainEngine> {
+  String _statusMessage = "Welcome to FinPath";
   static const EventChannel _smsChannel = EventChannel('com.finpath.messages');
-
-  // 2. A list to hold our database transactions
   List<ExpenseTransaction> _savedMessages = [];
 
   @override
@@ -60,11 +60,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _startSmsListener() async {
-    // Ask the user for permission
     var status = await Permission.sms.request();
-
     if (status.isGranted) {
-      // Start listening to Kotlin!
       _smsChannel.receiveBroadcastStream().listen((dynamic event) {
         _saveSmsToDatabase(event);
       });
@@ -76,28 +73,24 @@ class _LoginScreenState extends State<LoginScreen> {
     final String sender = smsData['sender'] ?? 'Unknown';
     final String message = smsData['message'] ?? '';
 
-    // Create a new database entry (Blueprint)
     final newTransaction = ExpenseTransaction()
       ..title = sender
-      ..amount = 0.0 // We will write regex to extract real money later!
+      ..amount = 0.0
       ..date = DateTime.now()
       ..isExpense = true
       ..smsRawText = message;
 
-    // Save it to Isar permanently
     await isarDB.writeTxn(() async {
       await isarDB.expenseTransactions.put(newTransaction);
     });
 
-    // Refresh the screen
     _loadFromDatabase();
   }
 
   Future<void> _loadFromDatabase() async {
-    // Fetch all saved transactions from Isar
     final transactions = await isarDB.expenseTransactions.where().findAll();
     setState(() {
-      _savedMessages = transactions;
+      _savedMessages = transactions.reversed.toList(); // Newest first
     });
   }
 
@@ -116,35 +109,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('FinPath Engine Test')),
-      body: Column(
-        children: [
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _signInAnonymously,
-            child: const Text('Generate User ID'),
-          ),
-          Text(_statusMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const Divider(),
-          const Text("Intercepted SMS (From Isar DB):", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-
-          // Display the database items
-          Expanded(
-            child: ListView.builder(
-              itemCount: _savedMessages.length,
-              itemBuilder: (context, index) {
-                final tx = _savedMessages[index];
-                return ListTile(
-                  leading: const Icon(Icons.message, color: Colors.green),
-                  title: Text(tx.title),
-                  subtitle: Text(tx.smsRawText ?? ''),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+    // Navigate to Dashboard and pass the data/callbacks
+    return DashboardScreen(
+      transactions: _savedMessages,
+      statusMessage: _statusMessage,
+      onGenerateId: _signInAnonymously,
     );
   }
 }
