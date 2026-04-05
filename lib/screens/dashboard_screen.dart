@@ -20,6 +20,29 @@ class DashboardScreen extends StatelessWidget {
   static const Color backgroundGray = Color(0xFFEDF6F9);
   static const Color accentTeal = Color(0xFF83C5BE);
 
+  // --- MATH HELPERS ---
+  double _calculateTotalSpentThisMonth() {
+    double total = 0;
+    final now = DateTime.now();
+    for (var tx in transactions) {
+      if (tx.isExpense && tx.date.month == now.month && tx.date.year == now.year) {
+        total += tx.amount;
+      }
+    }
+    return total;
+  }
+
+  double _calculateTotalSpentToday() {
+    double total = 0;
+    final now = DateTime.now();
+    for (var tx in transactions) {
+      if (tx.isExpense && tx.date.day == now.day && tx.date.month == now.month && tx.date.year == now.year) {
+        total += tx.amount;
+      }
+    }
+    return total;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -125,6 +148,9 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildMonthlyOverviewCard() {
+    final double totalSpent = _calculateTotalSpentThisMonth();
+    final double monthlyLimit = 8000.0; // Static for now, can be made dynamic later
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -138,7 +164,7 @@ class DashboardScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Monthly Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryTeal)),
-              Text('March 2024', style: TextStyle(color: Colors.blueGrey[300])),
+              Text('April 2026', style: TextStyle(color: Colors.blueGrey[300])), // Updated to current month
             ],
           ),
           const SizedBox(height: 30),
@@ -162,8 +188,9 @@ class DashboardScreen extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('₹5.0K', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    Text('of ₹8.0K', style: TextStyle(color: Colors.grey[400])),
+                    // Converts 5000 to 5.0K
+                    Text('₹${(totalSpent / 1000).toStringAsFixed(1)}K', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text('of ₹${(monthlyLimit / 1000).toStringAsFixed(1)}K', style: TextStyle(color: Colors.grey[400])),
                   ],
                 ),
               ],
@@ -198,6 +225,13 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildTodaySpendingCard() {
+    final double todaySpent = _calculateTotalSpentToday();
+    final double dailyLimit = 750.0; // Static for now
+
+    // Calculate percentage and cap it at 100% (1.0) to prevent the circle from overflowing
+    double percent = dailyLimit > 0 ? todaySpent / dailyLimit : 0.0;
+    if (percent > 1.0) percent = 1.0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
@@ -210,10 +244,10 @@ class DashboardScreen extends StatelessWidget {
               Text('Today\'s Spending', style: TextStyle(color: Colors.blueGrey[300])),
               const SizedBox(height: 5),
               RichText(
-                text: const TextSpan(
+                text: TextSpan(
                   children: [
-                    TextSpan(text: '₹320 ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black)),
-                    TextSpan(text: '/ ₹750 limit', style: TextStyle(color: Colors.grey)),
+                    TextSpan(text: '₹${todaySpent.toStringAsFixed(0)} ', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black)),
+                    TextSpan(text: '/ ₹${dailyLimit.toStringAsFixed(0)} limit', style: const TextStyle(color: Colors.grey)),
                   ],
                 ),
               ),
@@ -222,8 +256,8 @@ class DashboardScreen extends StatelessWidget {
           CircularPercentIndicator(
             radius: 30.0,
             lineWidth: 8.0,
-            percent: 0.43,
-            center: const Text("43%", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            percent: percent,
+            center: Text("${(percent * 100).toStringAsFixed(0)}%", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             progressColor: primaryTeal,
             backgroundColor: backgroundGray,
             circularStrokeCap: CircularStrokeCap.round,
@@ -244,6 +278,7 @@ class DashboardScreen extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             title: const Text('View Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            initiallyExpanded: true, // Auto-expand to show off the data
             children: [
               transactions.isEmpty
                   ? const Padding(padding: EdgeInsets.all(20), child: Text("No transactions logged yet."))
@@ -253,11 +288,28 @@ class DashboardScreen extends StatelessWidget {
                 itemCount: transactions.length,
                 itemBuilder: (context, index) {
                   final tx = transactions[index];
+
+                  // UI Logic for Colors and Signs
+                  final bool isExpense = tx.isExpense;
+                  final String sign = isExpense ? '-' : '+';
+                  final Color amountColor = isExpense ? Colors.redAccent : Colors.green;
+                  final Color avatarBgColor = isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1);
+                  final IconData txIcon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+
                   return ListTile(
-                    leading: const CircleAvatar(backgroundColor: backgroundGray, child: Icon(Icons.sms_outlined, color: primaryTeal)),
+                    leading: CircleAvatar(
+                        backgroundColor: avatarBgColor,
+                        child: Icon(txIcon, color: amountColor, size: 20)
+                    ),
                     title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(tx.smsRawText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: Text('₹${tx.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text(
+                        isExpense ? 'Debit' : 'Credit',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12)
+                    ),
+                    trailing: Text(
+                        '$sign ₹${tx.amount.toStringAsFixed(2)}',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: amountColor, fontSize: 15)
+                    ),
                   );
                 },
               ),

@@ -82,9 +82,11 @@ class _MainEngineState extends State<MainEngine> {
       ..isExpense = parsedData.isExpense
       ..smsRawText = message;
 
-    await isarDB.writeTxn(() async {
-      await isarDB.expenseTransactions.put(newTransaction);
-    });
+    if (parsedData.amount > 0) {
+      await isarDB.writeTxn(() async {
+        await isarDB.expenseTransactions.put(newTransaction);
+      });
+    }
 
     _loadFromDatabase();
   }
