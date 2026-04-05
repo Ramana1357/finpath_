@@ -257,7 +257,7 @@ class DashboardScreen extends StatelessWidget {
                     leading: const CircleAvatar(backgroundColor: backgroundGray, child: Icon(Icons.sms_outlined, color: primaryTeal)),
                     title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(tx.smsRawText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: Text('₹${tx.amount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    trailing: Text('₹${tx.amount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                   );
                 },
               ),

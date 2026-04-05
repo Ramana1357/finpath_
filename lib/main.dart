@@ -7,6 +7,7 @@ import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'models/transaction.dart';
 import 'screens/dashboard_screen.dart'; // Import the new screen
+import 'utils/sms_parser.dart';
 
 late final Isar isarDB;
 
@@ -72,12 +73,13 @@ class _MainEngineState extends State<MainEngine> {
     final Map<dynamic, dynamic> smsData = event;
     final String sender = smsData['sender'] ?? 'Unknown';
     final String message = smsData['message'] ?? '';
+    final parsedData = SmsParser.parse(message);
 
     final newTransaction = ExpenseTransaction()
       ..title = sender
-      ..amount = 0.0
+      ..amount = parsedData.amount
       ..date = DateTime.now()
-      ..isExpense = true
+      ..isExpense = parsedData.isExpense
       ..smsRawText = message;
 
     await isarDB.writeTxn(() async {
