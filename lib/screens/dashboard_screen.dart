@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../models/transaction.dart';
+import 'profile_screen.dart'; // IMPORT ADDED HERE
 
 class DashboardScreen extends StatelessWidget {
   final List<ExpenseTransaction> transactions;
@@ -50,7 +51,7 @@ class DashboardScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _buildAppBar(),
+            _buildAppBar(context), // PASSED CONTEXT HERE FOR NAVIGATION
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -73,11 +74,12 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      //bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  Widget _buildAppBar() {
+  // ADDED BuildContext context to this method so Navigator works
+  Widget _buildAppBar(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -105,9 +107,18 @@ class DashboardScreen extends StatelessWidget {
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
                 onPressed: () {},
               ),
-              const CircleAvatar(
-                backgroundColor: accentTeal,
-                child: Text('JD', style: TextStyle(color: primaryTeal, fontWeight: FontWeight.bold)),
+              // GESTURE DETECTOR ADDED HERE
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                  );
+                },
+                child: const CircleAvatar(
+                  backgroundColor: accentTeal,
+                  child: Text('JD', style: TextStyle(color: primaryTeal, fontWeight: FontWeight.bold)),
+                ),
               ),
             ],
           ),
@@ -320,19 +331,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomNav() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: primaryTeal,
-      unselectedItemColor: Colors.grey,
-      showUnselectedLabels: true,
-      currentIndex: 0,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.shield_outlined), label: 'Vault'),
-        BottomNavigationBarItem(icon: Icon(Icons.chrome_reader_mode_outlined), label: 'Feed'),
-        BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), label: 'Insights'),
-      ],
-    );
-  }
+/*Widget _buildBottomNav() {
+    // ...
+  }*/
 }

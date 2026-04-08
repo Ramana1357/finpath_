@@ -5,9 +5,16 @@ import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+
+// Models & Utils
 import 'models/transaction.dart';
-import 'screens/dashboard_screen.dart'; // Import the new screen
 import 'utils/sms_parser.dart';
+
+// Screens
+import 'screens/dashboard_screen.dart';
+import 'screens/vault_screen.dart';
+import 'screens/feed_screen.dart';
+import 'screens/insights_screen.dart';
 
 late final Isar isarDB;
 
@@ -53,6 +60,9 @@ class _MainEngineState extends State<MainEngine> {
   static const EventChannel _smsChannel = EventChannel('com.finpath.messages');
   List<ExpenseTransaction> _savedMessages = [];
 
+  // Navigation State
+  int _currentIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -94,7 +104,7 @@ class _MainEngineState extends State<MainEngine> {
   Future<void> _loadFromDatabase() async {
     final transactions = await isarDB.expenseTransactions.where().findAll();
     setState(() {
-      _savedMessages = transactions.reversed.toList(); // Newest first
+      _savedMessages = transactions.reversed.toList();
     });
   }
 
@@ -111,13 +121,41 @@ class _MainEngineState extends State<MainEngine> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // Navigate to Dashboard and pass the data/callbacks
-    return DashboardScreen(
+  // List of Screens for the Hub to swap between
+  List<Widget> get _screens => [
+    DashboardScreen(
       transactions: _savedMessages,
       statusMessage: _statusMessage,
       onGenerateId: _signInAnonymously,
+    ),
+    const VaultScreen(),
+    const FeedScreen(),
+    const InsightsScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_currentIndex],
+
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: const Color(0xFF006D77),
+        unselectedItemColor: Colors.grey,
+        showUnselectedLabels: true,
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.shield_outlined), label: 'Vault'),
+          BottomNavigationBarItem(icon: Icon(Icons.chrome_reader_mode_outlined), label: 'Feed'),
+          BottomNavigationBarItem(icon: Icon(Icons.pie_chart_outline), label: 'Insights'),
+        ],
+      ),
     );
   }
 }
