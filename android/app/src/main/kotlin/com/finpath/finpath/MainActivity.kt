@@ -31,7 +31,7 @@ class MainActivity: FlutterActivity() {
                     val module = py.getModule("insights_engine")
                     
                     val txJson = call.argument<String>("transactions")
-                    val cash = call.argument<Double>("physicalCash")
+                    val cash = call.argument<Number>("physicalCash")?.toDouble() ?: 0.0
                     
                     val pyResult = module.callAttr("calculate_on_device", txJson, cash).toString()
                     result.success(pyResult)

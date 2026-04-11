@@ -1,20 +1,18 @@
 import json
 
-def calculate_on_device(transaction_list_json, physical_cash):
+def calculate_on_device(transaction_list_json, physical_cash=0):
     """
-    Pure Python implementation - No heavy dependencies like Pandas.
-    transaction_list_json: A JSON string containing the list of transactions.
-    physical_cash: float
+    Pure Math Engine - No AI calls.
+    Returns raw stats for the Dart AI Coach to process.
     """
     try:
         transactions = json.loads(transaction_list_json)
         
         income = 0.0
         expenses = 0.0
+        categories = {}
         
-        # Simple Math (No Pandas needed)
         for tx in transactions:
-            # Handle potential string or numeric types from JSON
             try:
                 amount = float(tx.get('amount', 0))
             except (ValueError, TypeError):
@@ -22,29 +20,27 @@ def calculate_on_device(transaction_list_json, physical_cash):
                 
             if tx.get('isExpense', True):
                 expenses += amount
+                title = tx.get('title', 'Other').lower()
+                
+                if any(word in title for word in ['zomato', 'swiggy', 'food']): cat = "Food"
+                elif any(word in title for word in ['amazon', 'flipkart']): cat = "Shopping"
+                elif any(word in title for word in ['uber', 'ola']): cat = "Transport"
+                else: cat = "Other"
+                
+                categories[cat] = categories.get(cat, 0) + amount
             else:
                 income += amount
         
-        # Calculate Health Score
         savings = income - expenses
-        health_score = 0
-        if income > 0:
-            health_score = max(0, min(100, int((savings / income) * 100)))
+        health_score = max(0, min(100, int((savings / income) * 100))) if income > 0 else 0
         
-        # Reverse Audit Logic (Cash Leakage)
-        expected_balance = income - expenses
-        leakage = max(0.0, expected_balance - float(physical_cash))
-        
-        # Return statistics to Flutter/Kotlin
-        result = {
+        return json.dumps({
             "health_score": health_score,
             "income": income,
             "expenses": expenses,
-            "leakage": leakage,
+            "categories": categories,
             "status": "success"
-        }
-        
-        return json.dumps(result)
+        })
         
     except Exception as e:
         return json.dumps({"status": "error", "message": str(e)})

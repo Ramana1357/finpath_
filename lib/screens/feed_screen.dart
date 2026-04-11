@@ -76,6 +76,13 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   void initState() {
     super.initState();
     _transactionStream = CloudService().getTransactionsStream();
+    
+    // Auto-trigger analysis when new transactions arrive
+    _transactionStream.listen((transactions) {
+      if (transactions.isNotEmpty) {
+        CloudService().runAutoAnalysis(transactions);
+      }
+    });
   }
 
   // --- STATE VARIABLES ---

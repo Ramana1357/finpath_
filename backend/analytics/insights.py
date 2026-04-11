@@ -46,6 +46,7 @@ def get_ai_summaries(health_score, top_categories, anomalies):
     """
     
     try:
+        # Reverting to the most stable 1.5-flash with highest free quota
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=prompt

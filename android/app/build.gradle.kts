@@ -44,6 +44,10 @@ chaquopy {
     defaultConfig {
         version = "3.13"
         buildPython("C:/Users/santh/AppData/Local/Programs/Python/Python313/python.exe")
+        
+        pip {
+            install("requests")
+        }
     }
 }
 

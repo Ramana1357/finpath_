@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/services.dart'; // Added for MethodChannel
+import 'package:flutter/services.dart';
+import 'package:google_generative_ai/google_generative_ai.dart'; // Added Dart SDK
 import '../models/cloud_transaction.dart';
 import '../models/cloud_insight.dart';
 
@@ -11,6 +12,9 @@ class CloudService {
   
   // Bridge to Python/Kotlin
   static const _pythonChannel = MethodChannel('com.finpath.python');
+  
+  // Gemini Configuration (Dart)
+  static const String _geminiKey = "AIzaSyBngdaEHEpv7RecxocbAnn9X3Zz_1Blz3A";
 
   // Stream of transactions from Firestore for the current user
   Stream<List<CloudTransaction>> getTransactionsStream() {
@@ -41,50 +45,102 @@ class CloudService {
     return _auth.currentUser?.uid;
   }
 
-  /// NEW: The Instant On-Device Analysis
-  Future<void> updatePhysicalCash(double amount) async {
+  /// Trigger analysis based on recent activity (Automatic)
+  Future<void> runAutoAnalysis(List<CloudTransaction> transactions) async {
     String? uid = _auth.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null || transactions.isEmpty) return;
 
-    // 1. Update the Audit document in Firestore (Cloud)
-    await _db.collection('audits').doc(uid).set({
-      'cash_on_hand': amount,
-      'last_updated': FieldValue.serverTimestamp(),
-    });
-
-    // 2. Trigger On-Device Calculation (Instant!)
     try {
-      final snapshot = await _db.collection('transactions').where('userId', isEqualTo: uid).get();
-      
-      // Convert transactions to JSON for Python
-      final txData = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          "title": data['title'],
-          "amount": data['amount'],
-          "isExpense": data['isExpense'],
-          "date": data['date']?.toString()
-        };
+      final txData = transactions.map((tx) => {
+        "title": tx.title,
+        "amount": tx.amount,
+        "isExpense": tx.isExpense,
+        "date": tx.date.toIso8601String()
       }).toList();
 
+      // 1. Get raw stats from Python (Pure Math, very fast)
       final String pyResultJson = await _pythonChannel.invokeMethod('runInsights', {
         'transactions': jsonEncode(txData),
-        'physicalCash': amount,
+        'physicalCash': 0.0,
       });
+      final Map<String, dynamic> pyStats = jsonDecode(pyResultJson);
 
-      final Map<String, dynamic> result = jsonDecode(pyResultJson);
-      
-      if (result['status'] == 'success') {
-        // Update the local insights document in Firestore so the UI updates instantly
+      if (pyStats['status'] == 'success') {
+        // 2. Generate coaching cards using Dart Google AI SDK (Low Cost)
+        final feedSummaries = await _generateDartAiCoach(pyStats);
+
+        // 3. Update Firestore
         await _db.collection('insights').doc(uid).set({
-          "health_score": result['health_score'],
-          "physical_cash_balance": amount,
+          "health_score": pyStats['health_score'],
+          "feed_summaries": feedSummaries,
           "lastUpdated": FieldValue.serverTimestamp(),
-          "status": "Updated Locally (Python)"
+          "status": "AI Updated (Dart SDK)"
         }, SetOptions(merge: true));
       }
     } catch (e) {
-      print("Python Error: $e");
+      print("Analysis Error: $e");
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _generateDartAiCoach(Map<String, dynamic> stats) async {
+    try {
+      // Reverting to the most standard 1.5-flash which has the highest free tier quota
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _geminiKey);
+      
+      // DEBUG: List available models to console
+      // Note: This requires the listModels API which might not be directly in the simple GenerativeModel class
+      // but we can try to see what's available or just try the most common names.
+      
+      final prompt = """
+      Role: Witty financial coach for a college student.
+      Stats: Income: ${stats['income']}, Expenses: ${stats['expenses']}, Categories: ${stats['categories']}.
+      Task: Create 2 short, catchy coaching cards.
+      Output format: JSON list of objects.
+      Keys: "type" (positive, warning, alert), "title", "message" (max 12 words).
+      No markdown, just raw JSON.
+      """;
+
+      final response = await model.generateContent([Content.text(prompt)]);
+      String text = response.text?.trim() ?? "[]";
+      
+      // Basic cleaning in case AI returns markdown
+      if (text.contains("```json")) {
+        text = text.split("```json")[1].split("```")[0].trim();
+      } else if (text.contains("```")) {
+        text = text.split("```")[1].split("```")[0].trim();
+      }
+
+      return List<Map<String, dynamic>>.from(jsonDecode(text));
+    } catch (e) {
+      print("Dart AI Error: $e");
+      return [{"type": "neutral", "title": "Focus On Spending", "message": "Keep logging your spends to get smart AI tips."}];
+    }
+  }
+
+  Future<void> updatePhysicalCash(double amount) async {
+    // ... logic remains same, but trigger auto analysis after audit
+    String? uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    await _db.collection('audits').doc(uid).set({'cash_on_hand': amount, 'last_updated': FieldValue.serverTimestamp()});
+    // Trigger analysis with the current transactions
+    final snapshot = await _db.collection('transactions').where('userId', isEqualTo: uid).get();
+    final txs = snapshot.docs.map((doc) => CloudTransaction.fromFirestore(doc)).toList();
+    await runAutoAnalysis(txs);
+  }
+
+  Future<void> updateUserProfile(String name, String bio) async {
+    String? uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    await _db.collection('users').doc(uid).set({
+      'displayName': name,
+      'bio': bio,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Stream<DocumentSnapshot> getUserProfileStream() {
+    String? uid = _auth.currentUser?.uid;
+    if (uid == null) return const Stream.empty();
+    return _db.collection('users').doc(uid).snapshots();
   }
 }
