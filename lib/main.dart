@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ADDED THIS
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:restart_app/restart_app.dart'; // ADDED THIS
 
 // Models & Utils
 import 'models/transaction.dart';
@@ -15,6 +17,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/vault_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/insights_screen.dart';
+import 'screens/cloud_feed_screen.dart'; // Added this
 
 late final Isar isarDB;
 
@@ -59,6 +62,7 @@ class _MainEngineState extends State<MainEngine> {
   String _statusMessage = "Welcome to FinPath";
   static const EventChannel _smsChannel = EventChannel('com.finpath.messages');
   List<ExpenseTransaction> _savedMessages = [];
+  int _userPoints = 1580; // Add this global state for points
 
   // Navigation State
   int _currentIndex = 0;
@@ -111,14 +115,63 @@ class _MainEngineState extends State<MainEngine> {
   Future<void> _signInAnonymously() async {
     try {
       final userCredential = await FirebaseAuth.instance.signInAnonymously();
-      setState(() {
-        _statusMessage = "ID: ${userCredential.user?.uid}";
-      });
+      final String? uid = userCredential.user?.uid;
+      
+      if (uid != null) {
+        // Update status first
+        setState(() {
+          _statusMessage = "ID: $uid";
+        });
+
+        // Ping Firestore so the Python script knows this user is active
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'lastSeen': FieldValue.serverTimestamp(),
+          'platform': 'android',
+        });
+
+        // Check if insights already exist for this user
+        final doc = await FirebaseFirestore.instance.collection('insights').doc(uid).get();
+        
+        // If insights don't exist, it means the Python engine hasn't run for this ID yet
+        if (!doc.exists && mounted) {
+          _showRestartDialog();
+        } else {
+          setState(() {
+            _statusMessage = "Cloud Synced: $uid";
+          });
+        }
+      }
     } catch (e) {
       setState(() {
         _statusMessage = "Login failed: $e";
       });
     }
+  }
+
+  void _showRestartDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text("Cloud Sync Required"),
+        content: const Text("A new Cloud ID has been detected. To sync your insights, the app must close so the Python engine can process your account.\n\nPlease click 'Sync & Close' and then run the app again from Android Studio."),
+        actions: [
+          ElevatedButton(
+            onPressed: () async {
+              // 1. Close the database safely
+              await isarDB.close();
+              // 2. Force terminate the app process
+              SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF006D77),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text("Sync & Close"),
+          ),
+        ],
+      ),
+    );
   }
 
   // List of Screens for the Hub to swap between
@@ -127,9 +180,17 @@ class _MainEngineState extends State<MainEngine> {
       transactions: _savedMessages,
       statusMessage: _statusMessage,
       onGenerateId: _signInAnonymously,
+      totalPoints: _userPoints, // Pass points to dashboard
     ),
     const VaultScreen(),
-    const FeedScreen(),
+    FeedScreen(
+      currentPoints: _userPoints,
+      onPointsAwarded: (pts) {
+        setState(() {
+          _userPoints += pts;
+        });
+      },
+    ),
     const InsightsScreen(),
   ];
 

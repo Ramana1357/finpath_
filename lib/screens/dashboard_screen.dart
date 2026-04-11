@@ -8,12 +8,14 @@ class DashboardScreen extends StatelessWidget {
   final List<ExpenseTransaction> transactions;
   final String statusMessage;
   final VoidCallback onGenerateId;
+  final int totalPoints; // Added this
 
   const DashboardScreen({
     super.key,
     required this.transactions,
     required this.statusMessage,
     required this.onGenerateId,
+    this.totalPoints = 1580, // Default for backward compatibility
   });
 
   // Color Palette
@@ -60,7 +62,9 @@ class DashboardScreen extends StatelessWidget {
                   children: [
                     const SizedBox(height: 20),
                     _buildTopStatsRow(),
-                    const SizedBox(height: 25),
+                    const SizedBox(height: 15),
+                    _buildSyncStatus(), // Added this
+                    const SizedBox(height: 15),
                     _buildMonthlyOverviewCard(),
                     const SizedBox(height: 20),
                     _buildTodaySpendingCard(),
@@ -133,7 +137,7 @@ class DashboardScreen extends StatelessWidget {
       children: [
         _buildStatsCard('Out of Pocket', 'Mar 22nd', Icons.calendar_today, Colors.red[100]!),
         _buildStatsCard('Savings', '24% ↑', Icons.trending_up, Colors.green[100]!),
-        _buildStatsCard('Pts', '1,580', Icons.emoji_events_outlined, Colors.orange[100]!),
+        _buildStatsCard('Pts', totalPoints.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},'), Icons.emoji_events_outlined, Colors.orange[100]!),
       ],
     );
   }
@@ -154,6 +158,36 @@ class DashboardScreen extends StatelessWidget {
           Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
           Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryTeal)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSyncStatus() {
+    return InkWell(
+      onTap: onGenerateId,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: accentTeal.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: accentTeal.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_done_outlined, color: primaryTeal, size: 20),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Cloud Connection", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryTeal)),
+                  Text(statusMessage, style: TextStyle(color: Colors.blueGrey[400], fontSize: 11), overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const Icon(Icons.refresh, color: primaryTeal, size: 18),
+          ],
+        ),
       ),
     );
   }

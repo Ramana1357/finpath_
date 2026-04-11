@@ -17,38 +17,59 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // We open a continuous stream to Flutter
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    if (smsReceiver != null) {
+                        try {
+                            unregisterReceiver(smsReceiver)
+                        } catch (e: Exception) {
+                            // Already unregistered
+                        }
+                    }
 
-                    // Create the native Android SMS listener
                     smsReceiver = object : BroadcastReceiver() {
                         override fun onReceive(context: Context, intent: Intent) {
                             if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
                                 val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
                                 for (sms in messages) {
-                                    // Package the sender and message into a map
                                     val data = mapOf(
                                         "sender" to (sms.displayOriginatingAddress ?: ""),
                                         "message" to (sms.displayMessageBody ?: "")
                                     )
-                                    // Throw the data over the bridge to Flutter!
                                     events?.success(data)
                                 }
                             }
                         }
                     }
-                    // Start listening!
                     registerReceiver(smsReceiver, IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION))
                 }
 
                 override fun onCancel(arguments: Any?) {
-                    // Stop listening if Flutter closes the connection
-                    unregisterReceiver(smsReceiver)
-                    smsReceiver = null
+                    unregisterSmsReceiver()
                 }
             }
         )
+    }
+
+    private fun unregisterSmsReceiver() {
+        if (smsReceiver != null) {
+            try {
+                unregisterReceiver(smsReceiver)
+            } catch (e: Exception) {
+                // Ignore
+            }
+            smsReceiver = null
+        }
+    }
+
+    override fun detachFromFlutterEngine() {
+        unregisterSmsReceiver()
+        super.detachFromFlutterEngine()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        unregisterSmsReceiver()
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 }
