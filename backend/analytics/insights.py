@@ -1,7 +1,7 @@
 import sys
 import os
 import pandas as pd
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 import json
 
@@ -19,16 +19,15 @@ load_dotenv(dotenv_path=env_path)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Configure Gemini
+# Configure Gemini using new google-genai SDK
 if GEMINI_API_KEY and GEMINI_API_KEY != "YOUR_KEY_HERE":
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    client = genai.Client(api_key=GEMINI_API_KEY)
 else:
-    model = None
+    client = None
 
 def get_ai_summaries(health_score, top_categories, anomalies):
     """Uses Gemini to generate creative financial coaching messages."""
-    if not model:
+    if not client:
         return fallback_summaries(health_score, top_categories, anomalies)
 
     prompt = f"""
@@ -47,7 +46,10 @@ def get_ai_summaries(health_score, top_categories, anomalies):
     """
     
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
         text = response.text.strip()
         # Handle cases where Gemini wraps JSON in markdown
         if "```json" in text:
@@ -72,14 +74,12 @@ def fallback_summaries(health_score, top_categories, anomalies):
 def get_user_transactions(user_id):
     """Fetches all transactions for a specific user from Firestore."""
     db = get_db()
-    # Using 'filter' keyword as suggested by warning
     docs = db.collection("transactions").where(filter=firestore.FieldFilter("userId", "==", user_id)).stream()
     
     data = []
     for doc in docs:
         d = doc.to_dict()
         d['id'] = doc.id
-        # Ensure dates are strings for Gemini context
         if 'date' in d and hasattr(d['date'], 'isoformat'):
             d['date'] = d['date'].isoformat()
         data.append(d)
@@ -123,7 +123,7 @@ def calculate_insights(user_id):
         threshold = expenses['amount'].mean() + (2 * expenses['amount'].std())
         outliers = expenses[expenses['amount'] > threshold]
         for _, row in outliers.iterrows():
-            anomalies.append({"title": row['title'], "amount": row['amount'], "date": row['date'].strftime('%Y-%m-%d')})
+            anomalies.append({"title": row['title'], "amount": row['amount'], "date": row['date']})
 
     db = get_db()
     audit_doc = db.collection("audits").document(user_id).get()
@@ -156,8 +156,7 @@ def push_insights_to_firestore(user_id):
 
 if __name__ == "__main__":
     db = initialize_firebase()
-    # Fixed import here too
     from scripts.data_generator import get_all_recent_users
-    active_users = get_all_recent_users(db)
+    active_users = get_all_recent_users(db, limit=1)
     for user_id in active_users:
         push_insights_to_firestore(user_id)

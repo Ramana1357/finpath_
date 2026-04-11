@@ -8,15 +8,42 @@ import android.provider.Telephony
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 
 class MainActivity: FlutterActivity() {
-    // This is the name of our bridge to Flutter
     private val SMS_CHANNEL = "com.finpath.messages"
+    private val PYTHON_CHANNEL = "com.finpath.python"
     private var smsReceiver: BroadcastReceiver? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // --- PYTHON CHANNEL ---
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PYTHON_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "runInsights") {
+                try {
+                    if (!Python.isStarted()) {
+                        Python.start(AndroidPlatform(this))
+                    }
+                    val py = Python.getInstance()
+                    val module = py.getModule("insights_engine")
+                    
+                    val txJson = call.argument<String>("transactions")
+                    val cash = call.argument<Double>("physicalCash")
+                    
+                    val pyResult = module.callAttr("calculate_on_device", txJson, cash).toString()
+                    result.success(pyResult)
+                } catch (e: Exception) {
+                    result.error("PY_ERROR", e.message, null)
+                }
+            } else {
+                result.notImplemented()
+            }
+        }
+
+        // --- SMS CHANNEL ---
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, SMS_CHANNEL).setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {

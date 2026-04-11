@@ -1,0 +1,13 @@
+apply plugin: 'com.chaquo.python'
+
+android {
+    python {
+        // Point to your local Python executable
+        buildPython "C:/Users/santh/AppData/Local/Programs/Python/Python313/python.exe"
+        
+        pip {
+            // Keep it light for on-device math
+            // No pandas or google-generativeai here
+        }
+    }
+}

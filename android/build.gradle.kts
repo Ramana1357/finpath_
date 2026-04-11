@@ -1,7 +1,21 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = java.net.URI.create("https://chaquo.com/maven") }
+    }
+    dependencies {
+        // Aligned with settings.gradle.kts version
+        classpath("com.android.tools.build:gradle:8.7.0")
+        classpath("com.chaquo.python:gradle:16.0.0")
+    }
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url = java.net.URI.create("https://chaquo.com/maven") }
     }
 }
 
