@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'profile_screen.dart'; // Added import
+import 'package:provider/provider.dart';
+import '../presentation/providers/auth_provider.dart';
+import 'profile_screen.dart';
 
 // --- DATA MODEL (Ready for Backend Integration) ---
 class DreamVaultModel {
@@ -58,13 +60,13 @@ class _VaultScreenState extends State<VaultScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _backgroundGray,
-      // Removed bottomNavigationBar as requested; handled by Main Hub
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(context), // Passed context
-            Expanded(
-              child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAppBar(context),
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,12 +87,12 @@ class _VaultScreenState extends State<VaultScreen> {
                     _buildVaultList(),
                     const SizedBox(height: 20),
                     _buildCrisisModeCard(),
-                    const SizedBox(height: 80), // Space for FAB
+                    const SizedBox(height: 80),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -103,7 +105,13 @@ class _VaultScreenState extends State<VaultScreen> {
 
   // --- WIDGET COMPONENTS ---
 
-  Widget _buildAppBar(BuildContext context) { // Accepts context
+  Widget _buildAppBar(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+    final String initials = profile?.name != null && profile!.name.isNotEmpty 
+        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        : 'JD';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -131,17 +139,17 @@ class _VaultScreenState extends State<VaultScreen> {
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
                 onPressed: () {},
               ),
-              GestureDetector( // Added GestureDetector
+              GestureDetector(
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const ProfileScreen()),
                   );
                 },
-                child: const CircleAvatar(
-                  backgroundColor: Color(0xFF83C5BE),
-                  child: Text('JD',
-                      style: TextStyle(
+                child: CircleAvatar(
+                  backgroundColor: const Color(0xFF83C5BE),
+                  child: Text(initials,
+                      style: const TextStyle(
                           color: _primaryTeal, fontWeight: FontWeight.bold)),
                 ),
               ),

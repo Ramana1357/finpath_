@@ -14,20 +14,34 @@ class CloudService {
   static const _pythonChannel = MethodChannel('com.finpath.python');
   
   // Gemini Configuration (Dart)
-  static const String _geminiKey = "AIzaSyBngdaEHEpv7RecxocbAnn9X3Zz_1Blz3A";
+  static const String _geminiKey = String.fromEnvironment('GEMINI_API_KEY');
 
   // Stream of transactions from Firestore for the current user
   Stream<List<CloudTransaction>> getTransactionsStream() {
     String? uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value([]);
 
+    // FORCE UPDATE "lastSeen" so Python script detects this UID as active
+    _db.collection('users').doc(uid).set({
+      'lastSeen': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    print("Fetching cloud transactions for UID: $uid"); // DEBUG
+
     return _db
         .collection('transactions')
         .where('userId', isEqualTo: uid)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CloudTransaction.fromFirestore(doc))
-            .toList());
+        .map((snapshot) {
+          print("Received ${snapshot.docs.length} docs from Firestore"); // DEBUG
+          final txs = snapshot.docs
+              .map((doc) => CloudTransaction.fromFirestore(doc))
+              .toList();
+          
+          // Sort in memory instead to avoid Firestore index errors
+          txs.sort((a, b) => b.date.compareTo(a.date));
+          return txs;
+        });
   }
 
   // Stream of insights
@@ -142,5 +156,44 @@ class CloudService {
     String? uid = _auth.currentUser?.uid;
     if (uid == null) return const Stream.empty();
     return _db.collection('users').doc(uid).snapshots();
+  }
+
+  /// Updates the user's streak based on their last activity.
+  /// This should be called when the app is opened or when a transaction is logged.
+  Future<void> updateStreak() async {
+    String? uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+
+    final userDoc = _db.collection('users').doc(uid);
+    final snapshot = await userDoc.get();
+    
+    if (!snapshot.exists) return;
+
+    final data = snapshot.data() as Map<String, dynamic>;
+    final lastActive = (data['lastActive'] as Timestamp?)?.toDate();
+    int currentStreak = data['streak'] ?? 0;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    if (lastActive != null) {
+      final lastActiveDate = DateTime(lastActive.year, lastActive.month, lastActive.day);
+      final difference = today.difference(lastActiveDate).inDays;
+
+      if (difference == 1) {
+        // Increment streak if last active was yesterday
+        currentStreak++;
+      } else if (difference > 1) {
+        // Reset streak if last active was more than a day ago
+        currentStreak = 1;
+      }
+      // If difference == 0, it's the same day, don't increment
+    } else {
+      currentStreak = 1;
+    }
+
+    await userDoc.set({
+      'streak': currentStreak,
+      'lastActive': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

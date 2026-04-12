@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/cloud_service.dart';
+import 'package:provider/provider.dart';
+import '../presentation/providers/auth_provider.dart';
+import '../data/models/profile_model.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int totalPoints;
@@ -12,10 +12,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final CloudService _cloudService = CloudService();
-  String _userName = "Loading...";
-  String _userSubtitle = "...";
-  final int _currentStreak = 14;
   bool _isSmsListenerActive = true;
 
   // --- UI COLORS ---
@@ -23,59 +19,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const Color _backgroundGray = Color(0xFFEDF6F9);
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: _cloudService.getUserProfileStream(),
-      builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>;
-          _userName = data['displayName'] ?? "New User";
-          _userSubtitle = data['bio'] ?? "Financial Explorer";
-        }
+  void initState() {
+    super.initState();
+    // Update streak when profile is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      CloudService().updateStreak();
+    });
+  }
 
-        return Scaffold(
-          backgroundColor: _backgroundGray,
-          appBar: AppBar(
-            backgroundColor: _primaryTeal,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            title: const Text(
-              "My Profile",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            centerTitle: true,
-          ),
-          body: SingleChildScrollView(
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final profile = authProvider.profile;
+    final cloudService = CloudService();
+
+    final String name = profile?.name ?? "New User";
+    final String bio = profile?.qualification ?? "Financial Explorer";
+
+    return Scaffold(
+      backgroundColor: _backgroundGray,
+      appBar: AppBar(
+        backgroundColor: _primaryTeal,
+        elevation: 0,
+        automaticallyImplyLeading: false, // Don't show back button in tab
+        title: const Text(
+          "My Profile",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+      ),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: cloudService.getUserProfileStream(),
+        builder: (context, snapshot) {
+          int streak = 0;
+          if (snapshot.hasData && snapshot.data!.exists) {
+            final data = snapshot.data!.data() as Map<String, dynamic>;
+            streak = data['streak'] ?? 0;
+          }
+
+          return SingleChildScrollView(
             child: Column(
               children: [
                 const SizedBox(height: 30),
-                _buildHeader(),
+                _buildHeader(name, bio),
                 const SizedBox(height: 30),
-                _buildGamificationCard(),
+                _buildGamificationCard(streak),
                 const SizedBox(height: 30),
-                _buildSettingsList(),
+                _buildSettingsList(name, bio),
                 const SizedBox(height: 40),
-                _buildLogoutButton(),
+                _buildLogoutButton(authProvider),
                 const SizedBox(height: 40),
               ],
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String name, String bio) {
     return Column(
       children: [
         Stack(
           children: [
             const CircleAvatar(
               radius: 50,
-              backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+              backgroundColor: _primaryTeal,
+              child: Icon(Icons.person, size: 50, color: Colors.white),
             ),
             Positioned(
               bottom: 0,
@@ -85,7 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 backgroundColor: _primaryTeal,
                 child: IconButton(
                   icon: const Icon(Icons.edit, size: 14, color: Colors.white),
-                  onPressed: _showEditProfileDialog,
+                  onPressed: () {}, // Handle edit profile
                 ),
               ),
             ),
@@ -93,55 +103,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 15),
         Text(
-          _userName,
+          name,
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         const SizedBox(height: 5),
         Text(
-          _userSubtitle,
+          bio,
           style: TextStyle(fontSize: 14, color: Colors.grey[600]),
         ),
       ],
     );
   }
 
-  void _showEditProfileDialog() {
-    TextEditingController nameController = TextEditingController(text: _userName);
-    TextEditingController bioController = TextEditingController(text: _userSubtitle);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Edit Profile"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Name"),
-            ),
-            TextField(
-              controller: bioController,
-              decoration: const InputDecoration(labelText: "Bio"),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () async {
-              await _cloudService.updateUserProfile(nameController.text, bioController.text);
-              if (mounted) Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal, foregroundColor: Colors.white),
-            child: const Text("Save"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGamificationCard() {
+  Widget _buildGamificationCard(int streak) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.symmetric(vertical: 20),
@@ -165,7 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const Icon(Icons.local_fire_department, color: Colors.orange),
                 const SizedBox(width: 8),
                 Text(
-                  "$_currentStreak Day Streak",
+                  "$streak Day Streak",
                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
                 ),
               ],
@@ -183,7 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const Icon(Icons.emoji_events_outlined, color: Colors.black87),
                 const SizedBox(width: 8),
                 Text(
-                  "${widget.totalPoints} Lifetime Pts",
+                  "${widget.totalPoints} Pts",
                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
               ],
@@ -194,18 +168,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSettingsList() {
+  Widget _buildSettingsList(String name, String bio) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-          _buildSettingsItem(Icons.person_outline, "Personal Information", onTap: _showEditProfileDialog),
+          _buildSettingsItem(
+            Icons.person_outline,
+            "Personal Information",
+            onTap: () => _showPersonalInformationDialog(context),
+          ),
           _buildSettingsItem(Icons.shield_outlined, "My Dream Vaults"),
-          _buildSettingsItem(Icons.file_download_outlined, "Export Financial Data"),
+          _buildSettingsItem(Icons.file_download_outlined, "Export Data"),
           const SizedBox(height: 20),
           _buildSettingsItem(
             Icons.chat_bubble_outline, 
-            "SMS Listener Settings", 
+            "SMS Listener", 
             badge: _isSmsListenerActive ? "Active" : "Inactive",
             onTap: () {
               setState(() {
@@ -213,11 +191,128 @@ class _ProfileScreenState extends State<ProfileScreen> {
               });
             }
           ),
-          _buildSettingsItem(Icons.tune_outlined, "Smart Budget Rules"),
+          _buildSettingsItem(Icons.tune_outlined, "Budget Rules"),
           const SizedBox(height: 20),
           _buildSettingsItem(Icons.fingerprint, "Biometric Lock"),
           _buildSettingsItem(Icons.lock_outline, "Change Password"),
         ],
+      ),
+    );
+  }
+
+  void _showPersonalInformationDialog(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text("Personal Information"),
+            IconButton(
+              icon: const Icon(Icons.edit, size: 20),
+              onPressed: () {
+                Navigator.pop(context);
+                _showEditPersonalInformationDialog(context);
+              },
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInfoText("Name", profile?.name ?? "N/A"),
+            _buildInfoText("Age", profile?.age.toString() ?? "N/A"),
+            _buildInfoText("Gender", profile?.gender ?? "N/A"),
+            _buildInfoText("Qualification", profile?.qualification ?? "N/A"),
+            _buildInfoText("Financial Details", profile?.financialDetails ?? "N/A"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditPersonalInformationDialog(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+
+    final nameController = TextEditingController(text: profile?.name);
+    final ageController = TextEditingController(text: profile?.age.toString());
+    final qualificationController = TextEditingController(text: profile?.qualification);
+    final financialController = TextEditingController(text: profile?.financialDetails);
+    String? selectedGender = profile?.gender;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text("Edit Information"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameController, decoration: const InputDecoration(labelText: "Name")),
+                TextField(controller: ageController, decoration: const InputDecoration(labelText: "Age"), keyboardType: TextInputType.number),
+                DropdownButtonFormField<String>(
+                  value: selectedGender,
+                  items: ["Male", "Female", "Other"].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedGender = val),
+                  decoration: const InputDecoration(labelText: "Gender"),
+                ),
+                TextField(controller: qualificationController, decoration: const InputDecoration(labelText: "Qualification")),
+                TextField(controller: financialController, decoration: const InputDecoration(labelText: "Financial Details")),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                final updatedProfile = ProfileModel(
+                  uid: authProvider.user!.uid,
+                  name: nameController.text,
+                  email: authProvider.user!.email,
+                  age: int.tryParse(ageController.text) ?? (profile?.age ?? 0),
+                  gender: selectedGender ?? (profile?.gender ?? "Other"),
+                  qualification: qualificationController.text,
+                  financialDetails: financialController.text,
+                  createdAt: profile?.createdAt ?? DateTime.now(),
+                  updatedAt: DateTime.now(),
+                );
+                await authProvider.saveProfile(updatedProfile);
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoText(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(color: Colors.black, fontSize: 16),
+          children: [
+            TextSpan(
+              text: "$label: ",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
       ),
     );
   }
@@ -256,7 +351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildLogoutButton() {
+  Widget _buildLogoutButton(AuthProvider authProvider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: SizedBox(
@@ -268,7 +363,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text("Log Out"),
-                content: const Text("Are you sure you want to log out? This will end your current session."),
+                content: const Text("Are you sure you want to log out?"),
                 actions: [
                   TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
                   TextButton(
@@ -280,13 +375,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             );
 
             if (confirm == true) {
-              await FirebaseAuth.instance.signOut();
-              if (mounted) {
-                // Return to dashboard and maybe show a snackbar or trigger a refresh
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Logged out successfully")),
-                );
+              await authProvider.logout();
+              if (context.mounted) {
+                // This clears any remaining screens and ensures we are at the root
+                Navigator.of(context, rootNavigator: true)
+                    .pushNamedAndRemoveUntil('/', (route) => false);
               }
             }
           },

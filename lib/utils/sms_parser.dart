@@ -22,9 +22,11 @@ class SmsParser {
     // 2. Initial Filter: If no transaction words exist in the WHOLE message, ignore it.
     bool hasExpenseWord = expenseKeywords.any((kw) => lowerMsg.contains(kw));
     bool hasIncomeWord = incomeKeywords.any((kw) => lowerMsg.contains(kw));
+    bool isOtp = lowerMsg.contains('otp') || lowerMsg.contains('verification code') || lowerMsg.contains('one time password');
 
-    if (!hasExpenseWord && !hasIncomeWord) {
-      debugPrint("STRICT REJECTION: No transaction keywords found in the entire message.");
+    if ((!hasExpenseWord && !hasIncomeWord) || isOtp) {
+      if (isOtp) debugPrint("STRICT REJECTION: Message identified as OTP.");
+      else debugPrint("STRICT REJECTION: No transaction keywords found.");
       return ParsedSms(amount: 0.0, isExpense: true);
     }
 

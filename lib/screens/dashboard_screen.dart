@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:provider/provider.dart';
 import '../models/transaction.dart';
-import 'profile_screen.dart'; // IMPORT ADDED HERE
+import '../presentation/providers/auth_provider.dart';
+import 'profile_screen.dart';
+import 'all_transactions_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   final List<ExpenseTransaction> transactions;
   final String statusMessage;
   final VoidCallback onGenerateId;
-  final int totalPoints; // Added this
+  final int totalPoints;
 
   const DashboardScreen({
     super.key,
     required this.transactions,
     required this.statusMessage,
     required this.onGenerateId,
-    this.totalPoints = 1580, // Default for backward compatibility
+    this.totalPoints = 1580,
   });
 
   // Color Palette
@@ -51,11 +54,12 @@ class DashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundGray,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(context), // PASSED CONTEXT HERE FOR NAVIGATION
-            Expanded(
-              child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAppBar(context),
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,27 +67,31 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     _buildTopStatsRow(),
                     const SizedBox(height: 15),
-                    _buildSyncStatus(), // Added this
+                    _buildSyncStatus(context),
                     const SizedBox(height: 15),
                     _buildMonthlyOverviewCard(),
                     const SizedBox(height: 20),
                     _buildTodaySpendingCard(),
                     const SizedBox(height: 20),
-                    _buildRecentExpensesSection(),
+                    _buildRecentExpensesSection(context),
                     const SizedBox(height: 30),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-      //bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // ADDED BuildContext context to this method so Navigator works
   Widget _buildAppBar(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+    final String initials = profile?.name != null && profile!.name.isNotEmpty 
+        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        : 'JD';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -111,7 +119,6 @@ class DashboardScreen extends StatelessWidget {
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
                 onPressed: () {},
               ),
-              // GESTURE DETECTOR ADDED HERE
               GestureDetector(
                 onTap: () {
                   Navigator.push(
@@ -119,9 +126,9 @@ class DashboardScreen extends StatelessWidget {
                     MaterialPageRoute(builder: (context) => ProfileScreen(totalPoints: totalPoints)),
                   );
                 },
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   backgroundColor: accentTeal,
-                  child: Text('JD', style: TextStyle(color: primaryTeal, fontWeight: FontWeight.bold)),
+                  child: Text(initials, style: const TextStyle(color: primaryTeal, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -162,7 +169,10 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSyncStatus() {
+  Widget _buildSyncStatus(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final userId = authProvider.user?.uid ?? "Not Logged In";
+
     return InkWell(
       onTap: onGenerateId,
       child: Container(
@@ -181,6 +191,7 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text("Cloud Connection", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryTeal)),
+                  Text("User ID: $userId", style: TextStyle(color: Colors.blueGrey[400], fontSize: 10), overflow: TextOverflow.ellipsis),
                   Text(statusMessage, style: TextStyle(color: Colors.blueGrey[400], fontSize: 11), overflow: TextOverflow.ellipsis),
                 ],
               ),
@@ -312,7 +323,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentExpensesSection() {
+  Widget _buildRecentExpensesSection(BuildContext context) {
     return Column(
       children: [
         Theme(
@@ -322,19 +333,35 @@ class DashboardScreen extends StatelessWidget {
             collapsedBackgroundColor: Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-            title: const Text('View Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-            initiallyExpanded: true, // Auto-expand to show off the data
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('View Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AllTransactionsScreen()),
+                    );
+                  },
+                  child: const Text("View All", style: TextStyle(color: primaryTeal, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            initiallyExpanded: true, 
             children: [
               transactions.isEmpty
                   ? const Padding(padding: EdgeInsets.all(20), child: Text("No transactions logged yet."))
                   : ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: transactions.length,
+                itemCount: transactions.length > 5 ? 5 : transactions.length, // Show only 5 in recent
                 itemBuilder: (context, index) {
-                  final tx = transactions[index];
+                  // Create a sorted list for the dashboard recent view as well
+                  final sorted = List<ExpenseTransaction>.from(transactions)
+                    ..sort((a, b) => b.date.compareTo(a.date));
+                  final tx = sorted[index];
 
-                  // UI Logic for Colors and Signs
                   final bool isExpense = tx.isExpense;
                   final String sign = isExpense ? '-' : '+';
                   final Color amountColor = isExpense ? Colors.redAccent : Colors.green;

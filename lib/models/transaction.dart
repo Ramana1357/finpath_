@@ -5,16 +5,21 @@ part 'transaction.g.dart';
 
 @collection
 class ExpenseTransaction {
-  // Isar requires an ID. 'Isar.autoIncrement' automatically assigns a number (1, 2, 3...)
   Id id = Isar.autoIncrement;
 
-  late String title; // e.g., "Amazon", "SBI ATM"
+  late String title;
+  late double amount;
+  late DateTime date;
+  late bool isExpense;
+  late String category; // Added category
+  String? smsRawText;
 
-  late double amount; // e.g., 450.50
-
-  late DateTime date; // The exact time it happened
-
-  late bool isExpense; // True if money left your account, False if you received money
-
-  String? smsRawText; // Optional: We will save the original bank SMS here later!
+  ExpenseTransaction({
+    this.title = '',
+    this.amount = 0.0,
+    DateTime? date,
+    this.isExpense = true,
+    this.category = 'General',
+    this.smsRawText,
+  }) : date = date ?? DateTime.now();
 }

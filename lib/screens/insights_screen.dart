@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
 import '../services/cloud_service.dart';
 import '../models/cloud_insight.dart';
@@ -54,23 +56,30 @@ class _InsightsScreenState extends State<InsightsScreen> {
     return Scaffold(
       backgroundColor: _backgroundGray,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(context),
-            Expanded(
-              child: StreamBuilder<CloudInsight?>(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAppBar(context),
+              StreamBuilder<CloudInsight?>(
                 stream: _cloudService.getInsightsStream(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Padding(
+                      padding: EdgeInsets.all(50),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
                   }
 
                   final insight = snapshot.data;
                   if (insight == null) {
-                    return _buildNoDataState();
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 50),
+                      child: _buildNoDataState(),
+                    );
                   }
 
-                  return SingleChildScrollView(
+                  return Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,14 +101,20 @@ class _InsightsScreenState extends State<InsightsScreen> {
                   );
                 },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildAppBar(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+    final String initials = profile?.name != null && profile!.name.isNotEmpty 
+        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        : 'JD';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -134,9 +149,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
                     MaterialPageRoute(builder: (context) => const ProfileScreen()),
                   );
                 },
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   backgroundColor: _accentTeal,
-                  child: Text('JD', style: TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                  child: Text(initials, style: const TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -311,7 +326,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
-  void _showReverseAuditDialog() {
+  void _showPhysicalCashAuditDialog() {
     final TextEditingController cashController = TextEditingController();
     showDialog(
       context: context,
@@ -367,7 +382,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
             children: [
               const CircleAvatar(
                 backgroundColor: _backgroundGray,
-                child: Icon(Icons.assignment_turned_in_outlined, color: _primaryTeal),
+                child: Icon(Icons.account_balance_wallet_outlined, color: _primaryTeal),
               ),
               const SizedBox(width: 15),
               Expanded(
@@ -375,7 +390,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "End of Week Check",
+                      "Cash Reconciliation",
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(height: 5),
@@ -395,14 +410,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
             width: double.infinity,
             height: 55,
             child: ElevatedButton(
-              onPressed: _showReverseAuditDialog,
+              onPressed: _showPhysicalCashAuditDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primaryTeal,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 elevation: 0,
               ),
-              child: const Text("Run Reverse Audit", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: const Text("Run Physical Cash Audit", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
         ],

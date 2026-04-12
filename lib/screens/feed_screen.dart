@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
 import 'cloud_feed_screen.dart'; // Added
 import '../services/cloud_service.dart';
@@ -143,31 +145,24 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     return Scaffold(
       backgroundColor: _backgroundGray,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildAppBar(context),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAiCoachSection(), // ADDED THIS
-                    _buildCloudActivitySection(),
-                    _buildQuizCard(),
-                    _buildSectionHeader("Opportunities for You", true, onSeeAll: () {
-                       // Optional: Add logic for View All Opportunities
-                    }),
-                    _buildOpportunitiesList(),
-                    _buildSectionHeader("Active Scholarships", false),
-                    _buildScholarshipsList(),
-                    _buildSectionHeader("Quick Financial Tips", false),
-                    _buildTipsList(),
-                    const SizedBox(height: 30),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAppBar(context),
+              _buildAiCoachSection(),
+              _buildQuizCard(),
+              _buildSectionHeader("Opportunities for You", true, onSeeAll: () {
+                 // Optional: Add logic for View All Opportunities
+              }),
+              _buildOpportunitiesList(),
+              _buildSectionHeader("Active Scholarships", false),
+              _buildScholarshipsList(),
+              _buildSectionHeader("Quick Financial Tips", false),
+              _buildTipsList(),
+              const SizedBox(height: 30),
+            ],
+          ),
         ),
       ),
     );
@@ -270,7 +265,13 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildAppBar(BuildContext context) { // Accepts context
+  Widget _buildAppBar(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+    final String initials = profile?.name != null && profile!.name.isNotEmpty 
+        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
+        : 'JD';
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -298,16 +299,16 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
                 onPressed: () {},
               ),
-              GestureDetector( // Added GestureDetector
+              GestureDetector(
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const ProfileScreen()),
                   );
                 },
-                child: const CircleAvatar(
+                child: CircleAvatar(
                   backgroundColor: _accentTeal,
-                  child: Text('JD', style: TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                  child: Text(initials, style: const TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
