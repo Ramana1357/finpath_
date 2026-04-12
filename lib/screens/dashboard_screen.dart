@@ -2,23 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:provider/provider.dart';
-import '../models/transaction.dart';
+import '../models/cloud_transaction.dart';
 import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
 import 'all_transactions_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
-  final List<ExpenseTransaction> transactions;
+  final Stream<List<CloudTransaction>> transactionsStream;
   final String statusMessage;
   final VoidCallback onGenerateId;
   final int totalPoints;
+  final Function(int)? onSwitchTab;
 
   const DashboardScreen({
     super.key,
-    required this.transactions,
+    required this.transactionsStream,
     required this.statusMessage,
     required this.onGenerateId,
     this.totalPoints = 1580,
+    this.onSwitchTab,
   });
 
   // Color Palette
@@ -27,7 +29,7 @@ class DashboardScreen extends StatelessWidget {
   static const Color accentTeal = Color(0xFF83C5BE);
 
   // --- MATH HELPERS ---
-  double _calculateTotalSpentThisMonth() {
+  double _calculateTotalSpentThisMonth(List<CloudTransaction> transactions) {
     double total = 0;
     final now = DateTime.now();
     for (var tx in transactions) {
@@ -38,7 +40,7 @@ class DashboardScreen extends StatelessWidget {
     return total;
   }
 
-  double _calculateTotalSpentToday() {
+  double _calculateTotalSpentToday(List<CloudTransaction> transactions) {
     double total = 0;
     final now = DateTime.now();
     for (var tx in transactions) {
@@ -54,32 +56,39 @@ class DashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundGray,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildAppBar(context),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    _buildTopStatsRow(),
-                    const SizedBox(height: 15),
-                    _buildSyncStatus(context),
-                    const SizedBox(height: 15),
-                    _buildMonthlyOverviewCard(),
-                    const SizedBox(height: 20),
-                    _buildTodaySpendingCard(),
-                    const SizedBox(height: 20),
-                    _buildRecentExpensesSection(context),
-                    const SizedBox(height: 30),
-                  ],
-                ),
+        child: StreamBuilder<List<CloudTransaction>>(
+          stream: transactionsStream,
+          builder: (context, snapshot) {
+            final transactions = snapshot.data ?? [];
+            
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAppBar(context),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
+                        _buildTopStatsRow(),
+                        const SizedBox(height: 15),
+                        _buildSyncStatus(context, snapshot.connectionState),
+                        const SizedBox(height: 15),
+                        _buildMonthlyOverviewCard(transactions),
+                        const SizedBox(height: 20),
+                        _buildTodaySpendingCard(transactions),
+                        const SizedBox(height: 20),
+                        _buildRecentExpensesSection(context, transactions),
+                        const SizedBox(height: 30),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          }
         ),
       ),
     );
@@ -123,7 +132,12 @@ class DashboardScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => ProfileScreen(totalPoints: totalPoints)),
+                    MaterialPageRoute(
+                      builder: (context) => ProfileScreen(
+                        totalPoints: totalPoints,
+                        onSwitchTab: onSwitchTab,
+                      ),
+                    ),
                   );
                 },
                 child: CircleAvatar(
@@ -169,9 +183,11 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSyncStatus(BuildContext context) {
+  Widget _buildSyncStatus(BuildContext context, ConnectionState state) {
     final authProvider = context.read<AuthProvider>();
     final userId = authProvider.user?.uid ?? "Not Logged In";
+    
+    final bool isLoading = state == ConnectionState.waiting;
 
     return InkWell(
       onTap: onGenerateId,
@@ -184,7 +200,11 @@ class DashboardScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.cloud_done_outlined, color: primaryTeal, size: 20),
+            Icon(
+              isLoading ? Icons.sync : Icons.cloud_done_outlined, 
+              color: primaryTeal, 
+              size: 20
+            ),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -192,7 +212,7 @@ class DashboardScreen extends StatelessWidget {
                 children: [
                   const Text("Cloud Connection", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryTeal)),
                   Text("User ID: $userId", style: TextStyle(color: Colors.blueGrey[400], fontSize: 10), overflow: TextOverflow.ellipsis),
-                  Text(statusMessage, style: TextStyle(color: Colors.blueGrey[400], fontSize: 11), overflow: TextOverflow.ellipsis),
+                  Text(isLoading ? "Syncing..." : statusMessage, style: TextStyle(color: Colors.blueGrey[400], fontSize: 11), overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
@@ -203,9 +223,9 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMonthlyOverviewCard() {
-    final double totalSpent = _calculateTotalSpentThisMonth();
-    final double monthlyLimit = 8000.0; // Static for now, can be made dynamic later
+  Widget _buildMonthlyOverviewCard(List<CloudTransaction> transactions) {
+    final double totalSpent = _calculateTotalSpentThisMonth(transactions);
+    final double monthlyLimit = 8000.0; 
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -220,7 +240,7 @@ class DashboardScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Monthly Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryTeal)),
-              Text('April 2026', style: TextStyle(color: Colors.blueGrey[300])), // Updated to current month
+              Text('April 2026', style: TextStyle(color: Colors.blueGrey[300])), 
             ],
           ),
           const SizedBox(height: 30),
@@ -235,16 +255,14 @@ class DashboardScreen extends StatelessWidget {
                     sectionsSpace: 0,
                     centerSpaceRadius: 60,
                     sections: [
-                      PieChartSectionData(color: primaryTeal, value: 5, radius: 20, showTitle: false),
-                      PieChartSectionData(color: accentTeal, value: 3, radius: 20, showTitle: false),
-                      PieChartSectionData(color: Colors.grey[200], value: 2, radius: 20, showTitle: false),
+                      PieChartSectionData(color: primaryTeal, value: totalSpent > 0 ? totalSpent : 1, radius: 20, showTitle: false),
+                      PieChartSectionData(color: Colors.grey[200], value: (monthlyLimit - totalSpent) > 0 ? (monthlyLimit - totalSpent) : 0, radius: 20, showTitle: false),
                     ],
                   ),
                 ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Converts 5000 to 5.0K
                     Text('₹${(totalSpent / 1000).toStringAsFixed(1)}K', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     Text('of ₹${(monthlyLimit / 1000).toStringAsFixed(1)}K', style: TextStyle(color: Colors.grey[400])),
                   ],
@@ -261,10 +279,8 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _buildLegend() {
     final categories = [
-      {'name': 'Food & Dining', 'color': primaryTeal},
-      {'name': 'Transport', 'color': accentTeal},
-      {'name': 'Shopping', 'color': const Color(0xFF4ECDC4)},
-      {'name': 'Entertainment', 'color': const Color(0xFF96E6B3)},
+      {'name': 'Spending', 'color': primaryTeal},
+      {'name': 'Remaining', 'color': Colors.grey[200]},
     ];
     return Wrap(
       spacing: 20,
@@ -280,11 +296,10 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTodaySpendingCard() {
-    final double todaySpent = _calculateTotalSpentToday();
-    final double dailyLimit = 750.0; // Static for now
+  Widget _buildTodaySpendingCard(List<CloudTransaction> transactions) {
+    final double todaySpent = _calculateTotalSpentToday(transactions);
+    final double dailyLimit = 750.0;
 
-    // Calculate percentage and cap it at 100% (1.0) to prevent the circle from overflowing
     double percent = dailyLimit > 0 ? todaySpent / dailyLimit : 0.0;
     if (percent > 1.0) percent = 1.0;
 
@@ -323,7 +338,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentExpensesSection(BuildContext context) {
+  Widget _buildRecentExpensesSection(BuildContext context, List<CloudTransaction> transactions) {
     return Column(
       children: [
         Theme(
@@ -336,7 +351,7 @@ class DashboardScreen extends StatelessWidget {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('View Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                const Text('Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -355,12 +370,9 @@ class DashboardScreen extends StatelessWidget {
                   : ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: transactions.length > 5 ? 5 : transactions.length, // Show only 5 in recent
+                itemCount: transactions.length > 5 ? 5 : transactions.length,
                 itemBuilder: (context, index) {
-                  // Create a sorted list for the dashboard recent view as well
-                  final sorted = List<ExpenseTransaction>.from(transactions)
-                    ..sort((a, b) => b.date.compareTo(a.date));
-                  final tx = sorted[index];
+                  final tx = transactions[index];
 
                   final bool isExpense = tx.isExpense;
                   final String sign = isExpense ? '-' : '+';
@@ -391,8 +403,4 @@ class DashboardScreen extends StatelessWidget {
       ],
     );
   }
-
-/*Widget _buildBottomNav() {
-    // ...
-  }*/
 }

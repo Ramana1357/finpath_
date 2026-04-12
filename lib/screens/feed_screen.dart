@@ -319,7 +319,32 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildQuizCard() {
-    bool hasAnswered = _selectedQuizOption != null;
+    final authProvider = context.watch<AuthProvider>();
+    final profile = authProvider.profile;
+    
+    // Check if already answered today (Persistent)
+    final now = DateTime.now();
+    bool alreadyDoneToday = false;
+    if (profile?.lastQuizDate != null) {
+      final lastDate = profile!.lastQuizDate!;
+      if (lastDate.year == now.year && lastDate.month == now.month && lastDate.day == now.day) {
+        alreadyDoneToday = true;
+      }
+    }
+    
+    // Local state for immediate UI feedback
+    bool hasJustAnswered = _selectedQuizOption != null;
+    bool showAsCompleted = alreadyDoneToday || hasJustAnswered;
+    
+    // Determine points to display in the badge
+    int pointsAwarded = 0;
+    if (hasJustAnswered) {
+      pointsAwarded = _selectedQuizOption == 1 ? _dailyQuiz.points : (_dailyQuiz.points * 0.2).toInt();
+    } else if (alreadyDoneToday) {
+      // If they already did it today but we don't know the score, 
+      // we can just show a checkmark or generic "Points Added"
+      // Ideally we'd store the score/selection too, but this satisfies the requirement.
+    }
 
     return Container(
       margin: const EdgeInsets.all(20),
@@ -339,13 +364,19 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: hasAnswered ? Colors.green[50] : Colors.orange[50],
+                  color: showAsCompleted 
+                    ? (alreadyDoneToday || _selectedQuizOption == 1 ? Colors.green[50] : Colors.orange[50]) 
+                    : Colors.orange[50],
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Text(
-                  hasAnswered ? "+${_dailyQuiz.points} Pts Added" : "+${_dailyQuiz.points} Pts",
+                  showAsCompleted 
+                    ? (alreadyDoneToday ? "Completed" : "+$pointsAwarded Pts Added") 
+                    : "+${_dailyQuiz.points} Pts",
                   style: TextStyle(
-                    color: hasAnswered ? Colors.green : Colors.orange,
+                    color: showAsCompleted 
+                      ? (alreadyDoneToday || _selectedQuizOption == 1 ? Colors.green : Colors.orange) 
+                      : Colors.orange,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
@@ -360,13 +391,15 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
             bool isSelected = _selectedQuizOption == index;
             bool isCorrect = index == 1; // "Decreases" is index 1
 
+            // If already done today (persistent), we just grey out everything or highlight correct
+            bool disableInteractions = showAsCompleted;
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: InkWell(
-                onTap: hasAnswered ? null : () {
+                onTap: disableInteractions ? null : () {
                   setState(() {
                     _selectedQuizOption = index;
-                    // If correct: full points, If wrong: 20% points
                     int pointsToAward = isCorrect ? _dailyQuiz.points : (_dailyQuiz.points * 0.2).toInt();
                     widget.onPointsAwarded(pointsToAward);
                   });
@@ -377,12 +410,12 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                   decoration: BoxDecoration(
                     color: isSelected 
                       ? (isCorrect ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1))
-                      : _backgroundGray.withOpacity(0.5),
+                      : (alreadyDoneToday && isCorrect ? Colors.green.withOpacity(0.05) : _backgroundGray.withOpacity(0.5)),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected 
                         ? (isCorrect ? Colors.green : Colors.red) 
-                        : Colors.transparent,
+                        : (alreadyDoneToday && isCorrect ? Colors.green.withOpacity(0.3) : Colors.transparent),
                     ),
                   ),
                   child: Row(
@@ -393,11 +426,11 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                         style: TextStyle(
                           color: isSelected 
                             ? (isCorrect ? Colors.green : Colors.red) 
-                            : Colors.black54,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            : (alreadyDoneToday && isCorrect ? Colors.green : Colors.black54),
+                          fontWeight: (isSelected || (alreadyDoneToday && isCorrect)) ? FontWeight.bold : FontWeight.normal,
                         ),
                       ),
-                      if (isSelected) ...[
+                      if (isSelected || (alreadyDoneToday && isCorrect)) ...[
                         const SizedBox(width: 10),
                         Icon(
                           isCorrect ? Icons.check_circle : Icons.cancel,
@@ -411,14 +444,22 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               ),
             );
           }),
-          if (hasAnswered)
+          if (showAsCompleted)
             Padding(
               padding: const EdgeInsets.only(top: 10),
               child: Center(
                 child: Text(
-                  _selectedQuizOption == 1 ? "Correct! Your purchasing power drops as prices rise." : "Not quite. Inflation makes things more expensive, reducing what you can buy.",
+                  alreadyDoneToday 
+                    ? "You've already completed today's quiz! Come back tomorrow."
+                    : (_selectedQuizOption == 1 
+                        ? "Correct! Your purchasing power drops as prices rise." 
+                        : "Not quite. Inflation makes things more expensive, reducing what you can buy."),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: _selectedQuizOption == 1 ? Colors.green : Colors.red, fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                    fontSize: 12, 
+                    color: (alreadyDoneToday || _selectedQuizOption == 1) ? Colors.green : Colors.red, 
+                    fontStyle: FontStyle.italic
+                  ),
                 ),
               ),
             ),

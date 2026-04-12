@@ -17,9 +17,9 @@ class ExpenseTransaction {
   ExpenseTransaction({
     this.title = '',
     this.amount = 0.0,
-    DateTime? date,
+    required this.date,
     this.isExpense = true,
     this.category = 'General',
     this.smsRawText,
-  }) : date = date ?? DateTime.now();
+  });
 }

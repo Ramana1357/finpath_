@@ -107,6 +107,24 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> updatePassword(String newPassword) async {
+    _setLoading(true);
+    try {
+      await _userRepository.updatePassword(newPassword);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<bool> verifyPassword(String password) async {
+    _setLoading(true);
+    try {
+      return await _userRepository.verifyPassword(password);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> logout() async {
     final uid = _user?.uid;
     

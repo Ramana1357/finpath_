@@ -68,16 +68,26 @@ def get_all_recent_users(db, limit=5):
     return uids
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--uid", help="Target specific User ID")
+    args = parser.parse_args()
+
     db = initialize_firebase()
     
-    # Target ONLY the single most recent user to save cost/time
-    active_users = get_all_recent_users(db, limit=1)
-    
-    if not active_users:
-        print("No user detected. Check Firestore 'users' collection.")
-        sys.exit(0)
+    user_id = None
+    if args.uid:
+        user_id = args.uid
+        print(f"Using manual UID: {user_id}")
+    else:
+        print("Searching for most recent active user...")
+        active_users = get_all_recent_users(db, limit=1)
+        if active_users:
+            user_id = active_users[0]
+        else:
+            print("No user detected. Check Firestore 'users' collection.")
+            sys.exit(0)
         
-    user_id = active_users[0]
     print(f"\n--- Processing Active User: {user_id} ---")
     
     # Mark as "Syncing"

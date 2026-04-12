@@ -38,4 +38,20 @@ class AuthService {
   Future<void> deleteAccount() async {
     await _auth.currentUser?.delete();
   }
+
+  Future<void> updatePassword(String newPassword) async {
+    await _auth.currentUser?.updatePassword(newPassword);
+  }
+
+  Future<bool> verifyPassword(String password) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) return false;
+    try {
+      final credential = EmailAuthProvider.credential(email: user.email!, password: password);
+      await user.reauthenticateWithCredential(credential);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 }

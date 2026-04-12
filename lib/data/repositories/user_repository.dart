@@ -104,4 +104,12 @@ class UserRepository {
     await _cacheService.clearCache();
     await _authService.signOut();
   }
+
+  Future<void> updatePassword(String newPassword) async {
+    await _authService.updatePassword(newPassword);
+  }
+
+  Future<bool> verifyPassword(String password) async {
+    return await _authService.verifyPassword(password);
+  }
 }

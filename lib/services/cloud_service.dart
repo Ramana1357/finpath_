@@ -21,11 +21,6 @@ class CloudService {
     String? uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value([]);
 
-    // FORCE UPDATE "lastSeen" so Python script detects this UID as active
-    _db.collection('users').doc(uid).set({
-      'lastSeen': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
     print("Fetching cloud transactions for UID: $uid"); // DEBUG
 
     return _db
@@ -167,7 +162,15 @@ class CloudService {
     final userDoc = _db.collection('users').doc(uid);
     final snapshot = await userDoc.get();
     
-    if (!snapshot.exists) return;
+    // Create doc if it doesn't exist (e.g. new user)
+    if (!snapshot.exists) {
+      await userDoc.set({
+        'streak': 1,
+        'lastActive': FieldValue.serverTimestamp(),
+        'lastSeen': FieldValue.serverTimestamp(),
+      });
+      return;
+    }
 
     final data = snapshot.data() as Map<String, dynamic>;
     final lastActive = (data['lastActive'] as Timestamp?)?.toDate();
@@ -185,8 +188,11 @@ class CloudService {
       } else if (difference > 1) {
         // Reset streak if last active was more than a day ago
         currentStreak = 1;
+      } else if (difference == 0) {
+        // Same day, update lastSeen but don't touch streak logic
+        await userDoc.update({'lastSeen': FieldValue.serverTimestamp()});
+        return; 
       }
-      // If difference == 0, it's the same day, don't increment
     } else {
       currentStreak = 1;
     }
@@ -194,6 +200,7 @@ class CloudService {
     await userDoc.set({
       'streak': currentStreak,
       'lastActive': FieldValue.serverTimestamp(),
+      'lastSeen': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 }

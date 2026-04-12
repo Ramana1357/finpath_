@@ -23,23 +23,28 @@ const ExpenseTransactionSchema = CollectionSchema(
       name: r'amount',
       type: IsarType.double,
     ),
-    r'date': PropertySchema(
+    r'category': PropertySchema(
       id: 1,
+      name: r'category',
+      type: IsarType.string,
+    ),
+    r'date': PropertySchema(
+      id: 2,
       name: r'date',
       type: IsarType.dateTime,
     ),
     r'isExpense': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'isExpense',
       type: IsarType.bool,
     ),
     r'smsRawText': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'smsRawText',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'title',
       type: IsarType.string,
     )
@@ -64,6 +69,7 @@ int _expenseTransactionEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.category.length * 3;
   {
     final value = object.smsRawText;
     if (value != null) {
@@ -81,10 +87,11 @@ void _expenseTransactionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDouble(offsets[0], object.amount);
-  writer.writeDateTime(offsets[1], object.date);
-  writer.writeBool(offsets[2], object.isExpense);
-  writer.writeString(offsets[3], object.smsRawText);
-  writer.writeString(offsets[4], object.title);
+  writer.writeString(offsets[1], object.category);
+  writer.writeDateTime(offsets[2], object.date);
+  writer.writeBool(offsets[3], object.isExpense);
+  writer.writeString(offsets[4], object.smsRawText);
+  writer.writeString(offsets[5], object.title);
 }
 
 ExpenseTransaction _expenseTransactionDeserialize(
@@ -93,13 +100,15 @@ ExpenseTransaction _expenseTransactionDeserialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  final object = ExpenseTransaction();
-  object.amount = reader.readDouble(offsets[0]);
-  object.date = reader.readDateTime(offsets[1]);
+  final object = ExpenseTransaction(
+    amount: reader.readDoubleOrNull(offsets[0]) ?? 0.0,
+    category: reader.readStringOrNull(offsets[1]) ?? 'General',
+    date: reader.readDateTime(offsets[2]),
+    isExpense: reader.readBoolOrNull(offsets[3]) ?? true,
+    smsRawText: reader.readStringOrNull(offsets[4]),
+    title: reader.readStringOrNull(offsets[5]) ?? '',
+  );
   object.id = id;
-  object.isExpense = reader.readBool(offsets[2]);
-  object.smsRawText = reader.readStringOrNull(offsets[3]);
-  object.title = reader.readString(offsets[4]);
   return object;
 }
 
@@ -111,15 +120,17 @@ P _expenseTransactionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDouble(offset)) as P;
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
     case 1:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset) ?? 'General') as P;
     case 2:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 3:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset) ?? true) as P;
     case 4:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
+    case 5:
+      return (reader.readStringOrNull(offset) ?? '') as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -283,6 +294,142 @@ extension ExpenseTransactionQueryFilter
         upper: upper,
         includeUpper: includeUpper,
         epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'category',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'category',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'category',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'category',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      categoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'category',
+        value: '',
       ));
     });
   }
@@ -723,6 +870,20 @@ extension ExpenseTransactionQuerySortBy
   }
 
   QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      sortByCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      sortByCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
       sortByDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'date', Sort.asc);
@@ -792,6 +953,20 @@ extension ExpenseTransactionQuerySortThenBy
       thenByAmountDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'amount', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      thenByCategory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      thenByCategoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'category', Sort.desc);
     });
   }
 
@@ -876,6 +1051,13 @@ extension ExpenseTransactionQueryWhereDistinct
   }
 
   QueryBuilder<ExpenseTransaction, ExpenseTransaction, QDistinct>
+      distinctByCategory({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'category', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QDistinct>
       distinctByDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'date');
@@ -915,6 +1097,13 @@ extension ExpenseTransactionQueryProperty
   QueryBuilder<ExpenseTransaction, double, QQueryOperations> amountProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'amount');
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, String, QQueryOperations>
+      categoryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'category');
     });
   }
 
