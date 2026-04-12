@@ -9,6 +9,7 @@ import '../presentation/providers/auth_provider.dart';
 import '../data/models/profile_model.dart';
 import '../models/transaction.dart';
 import '../services/cloud_service.dart';
+import '../services/local_cache_service.dart';
 
 class MainHub extends StatefulWidget {
   const MainHub({super.key});
@@ -19,14 +20,56 @@ class MainHub extends StatefulWidget {
 
 class _MainHubState extends State<MainHub> {
   int _selectedIndex = 0;
+  Stream<List<ExpenseTransaction>>? _localStream;
 
   @override
   void initState() {
     super.initState();
-    // Update streak and lastSeen once when the app starts
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      CloudService().updateStreak();
+    // Use the cacheService from Provider
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final cacheService = context.read<LocalCacheService>();
+      setState(() {
+        _localStream = cacheService.watchTransactions();
+      });
+
+      final cloudService = CloudService();
+      await cloudService.updateStreak();
+
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.needsRestoreCheck) {
+        _showRestoreDialog();
+      }
     });
+  }
+
+  void _showRestoreDialog() async {
+    final authProvider = context.read<AuthProvider>();
+    
+    final shouldRestore = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text("Restore Data?"),
+        content: const Text("Would you like to fetch your last 6 months of transaction history from the cloud, or start fresh?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Fresh Start"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+            child: const Text("Fetch 6 Months", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRestore == true) {
+      await authProvider.restoreData();
+    }
+    
+    authProvider.completeRestoreCheck();
   }
 
   void _addPoints(int points) async {
@@ -52,8 +95,8 @@ class _MainHubState extends State<MainHub> {
 
     final List<Widget> _screens = [
       DashboardScreen(
-        transactionsStream: cloudService.getTransactionsStream(),
-        statusMessage: "Connected to Firebase",
+        transactionsStream: _localStream ?? const Stream.empty(),
+        statusMessage: "Local-First Storage",
         onGenerateId: () {},
         totalPoints: totalPoints,
         onSwitchTab: (index) => setState(() => _selectedIndex = index),

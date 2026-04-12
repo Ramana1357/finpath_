@@ -17,6 +17,9 @@ void main() async {
 
   final cacheService = LocalCacheService();
   await cacheService.init();
+  
+  // Silent cleanup of transactions older than 6 months
+  cacheService.cleanupOldTransactions();
 
   final userRepository = UserRepository(
     authService: AuthService(),
@@ -27,6 +30,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        Provider.value(value: cacheService),
         ChangeNotifierProvider(create: (_) => AuthProvider(userRepository)),
       ],
       child: const MyApp(),

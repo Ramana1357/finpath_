@@ -4,7 +4,8 @@ import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
 import 'cloud_feed_screen.dart'; // Added
 import '../services/cloud_service.dart';
-import '../models/cloud_transaction.dart';
+import '../services/local_cache_service.dart';
+import '../models/transaction.dart';
 import '../models/cloud_insight.dart'; // ADDED THIS
 
 // --- DATA MODELS (Ready for Backend Integration) ---
@@ -69,7 +70,8 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMixin {
-  late final Stream<List<CloudTransaction>> _transactionStream;
+  late final Stream<List<ExpenseTransaction>> _transactionStream;
+  final LocalCacheService _cacheService = LocalCacheService();
 
   @override
   bool get wantKeepAlive => true; // This prevents the page from refreshing when you switch tabs
@@ -77,12 +79,19 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   @override
   void initState() {
     super.initState();
-    _transactionStream = CloudService().getTransactionsStream();
+    _initStream();
+  }
+
+  Future<void> _initStream() async {
+    await _cacheService.init();
+    setState(() {
+      _transactionStream = _cacheService.watchTransactions();
+    });
     
     // Auto-trigger analysis when new transactions arrive
     _transactionStream.listen((transactions) {
       if (transactions.isNotEmpty) {
-        CloudService().runAutoAnalysis(transactions);
+        CloudService().runAutoAnalysisFromLocal(transactions);
       }
     });
   }
@@ -480,7 +489,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
         }),
         SizedBox(
           height: 120,
-          child: StreamBuilder<List<CloudTransaction>>(
+          child: StreamBuilder<List<ExpenseTransaction>>(
             stream: _transactionStream,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {

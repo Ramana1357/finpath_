@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:provider/provider.dart';
-import '../models/cloud_transaction.dart';
+import '../models/transaction.dart';
 import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
 import 'all_transactions_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
-  final Stream<List<CloudTransaction>> transactionsStream;
+  final Stream<List<ExpenseTransaction>> transactionsStream;
   final String statusMessage;
   final VoidCallback onGenerateId;
   final int totalPoints;
@@ -29,7 +29,7 @@ class DashboardScreen extends StatelessWidget {
   static const Color accentTeal = Color(0xFF83C5BE);
 
   // --- MATH HELPERS ---
-  double _calculateTotalSpentThisMonth(List<CloudTransaction> transactions) {
+  double _calculateTotalSpentThisMonth(List<ExpenseTransaction> transactions) {
     double total = 0;
     final now = DateTime.now();
     for (var tx in transactions) {
@@ -40,11 +40,23 @@ class DashboardScreen extends StatelessWidget {
     return total;
   }
 
-  double _calculateTotalSpentToday(List<CloudTransaction> transactions) {
+  double _calculateTotalSpentToday(List<ExpenseTransaction> transactions) {
     double total = 0;
     final now = DateTime.now();
     for (var tx in transactions) {
       if (tx.isExpense && tx.date.day == now.day && tx.date.month == now.month && tx.date.year == now.year) {
+        total += tx.amount;
+      }
+    }
+    return total;
+  }
+
+  double _calculateTotalBalance(List<ExpenseTransaction> transactions) {
+    double total = 0;
+    for (var tx in transactions) {
+      if (tx.isExpense) {
+        total -= tx.amount;
+      } else {
         total += tx.amount;
       }
     }
@@ -56,7 +68,7 @@ class DashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundGray,
       body: SafeArea(
-        child: StreamBuilder<List<CloudTransaction>>(
+        child: StreamBuilder<List<ExpenseTransaction>>(
           stream: transactionsStream,
           builder: (context, snapshot) {
             final transactions = snapshot.data ?? [];
@@ -74,7 +86,7 @@ class DashboardScreen extends StatelessWidget {
                         const SizedBox(height: 20),
                         _buildTopStatsRow(),
                         const SizedBox(height: 15),
-                        _buildSyncStatus(context, snapshot.connectionState),
+                        _buildTotalBalanceCard(transactions),
                         const SizedBox(height: 15),
                         _buildMonthlyOverviewCard(transactions),
                         const SizedBox(height: 20),
@@ -223,7 +235,62 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMonthlyOverviewCard(List<CloudTransaction> transactions) {
+  Widget _buildTotalBalanceCard(List<ExpenseTransaction> transactions) {
+    final double totalBalance = _calculateTotalBalance(transactions);
+    final Color balanceColor = totalBalance >= 0 ? primaryTeal : Colors.redAccent;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: accentTeal.withOpacity(0.2),
+            child: Icon(Icons.account_balance_wallet_outlined, color: primaryTeal, size: 28),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Total Balance",
+                  style: TextStyle(
+                    color: Colors.blueGrey[400],
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "₹${totalBalance.toStringAsFixed(2)}",
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: balanceColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: Colors.grey),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyOverviewCard(List<ExpenseTransaction> transactions) {
     final double totalSpent = _calculateTotalSpentThisMonth(transactions);
     final double monthlyLimit = 8000.0; 
 
@@ -296,7 +363,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTodaySpendingCard(List<CloudTransaction> transactions) {
+  Widget _buildTodaySpendingCard(List<ExpenseTransaction> transactions) {
     final double todaySpent = _calculateTotalSpentToday(transactions);
     final double dailyLimit = 750.0;
 
@@ -338,7 +405,7 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentExpensesSection(BuildContext context, List<CloudTransaction> transactions) {
+  Widget _buildRecentExpensesSection(BuildContext context, List<ExpenseTransaction> transactions) {
     return Column(
       children: [
         Theme(

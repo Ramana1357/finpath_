@@ -1,10 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/local_cache_service.dart';
 import '../models/auth_user_model.dart';
 import '../models/profile_model.dart';
 import '../models/user_lifetime_log_model.dart';
+import '../../models/transaction.dart';
+import '../../services/cloud_service.dart';
 import 'package:uuid/uuid.dart';
 
 class UserRepository {
@@ -74,6 +77,14 @@ class UserRepository {
     await _cacheService.saveProfile(profile);
   }
 
+  Future<void> saveTransaction(ExpenseTransaction transaction) async {
+    await _cacheService.saveTransaction(transaction);
+    
+    // Trigger analysis immediately
+    final transactions = await _cacheService.getTransactionsForLastSixMonths();
+    await CloudService().runAutoAnalysisFromLocal(transactions);
+  }
+
   Future<bool> signInWithGoogle() async {
     final credential = await _authService.signInWithGoogle();
     return await handleAuthResult(credential, AuthProvider.google);
@@ -89,18 +100,56 @@ class UserRepository {
     return await handleAuthResult(credential, AuthProvider.emailPassword);
   }
 
-  Future<void> logout(String uid) async {
-    // Best effort logging
-    final log = UserLifetimeLogModel(
-      logId: const Uuid().v4(),
-      uid: uid,
-      eventType: 'logout',
-      lifetimePoints: 0, // In a real app, fetch this from state
-      categories: {'session_duration': 'unknown'},
-      createdAt: DateTime.now(),
-    );
-    await _firestoreService.saveLog(log);
+  Future<void> backupTransactions(String uid) async {
+    final transactions = await _cacheService.getTransactionsForLastSixMonths();
+    if (transactions.isEmpty) return;
+
+    final batch = _firestoreService.getBatch();
+    final collection = _firestoreService.getTransactionsCollection();
+
+    for (final tx in transactions) {
+      final docRef = collection.doc();
+      batch.set(docRef, {
+        'userId': uid,
+        'title': tx.title,
+        'amount': tx.amount,
+        'date': tx.date,
+        'isExpense': tx.isExpense,
+        'category': tx.category,
+        'backedUpAt': DateTime.now(),
+      });
+    }
+    await batch.commit();
+  }
+
+  Future<void> restoreTransactions(String uid) async {
+    final now = DateTime.now();
+    final sixMonthsAgo = now.subtract(const Duration(days: 180));
     
+    final snapshots = await _firestoreService.getTransactionsCollection()
+        .where('userId', isEqualTo: uid)
+        .where('date', isGreaterThan: sixMonthsAgo)
+        .get();
+
+    for (final doc in snapshots.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final tx = ExpenseTransaction(
+        title: data['title'],
+        amount: data['amount'],
+        date: (data['date'] as Timestamp).toDate(),
+        isExpense: data['isExpense'],
+        category: data['category'] ?? 'General',
+      );
+      await _cacheService.saveTransaction(tx);
+    }
+  }
+
+  Future<void> logout(String uid, {bool shouldBackup = false}) async {
+    if (shouldBackup) {
+      await backupTransactions(uid);
+    }
+    
+    // Clear state
     await _cacheService.clearCache();
     await _authService.signOut();
   }

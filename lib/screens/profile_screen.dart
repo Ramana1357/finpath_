@@ -4,7 +4,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../data/models/profile_model.dart';
 import '../services/cloud_service.dart';
+import '../services/local_cache_service.dart';
+import '../models/transaction.dart';
 import 'budget_rules_screen.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   final int totalPoints;
@@ -183,7 +192,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             },
           ),
-          _buildSettingsItem(Icons.file_download_outlined, "Export Data"),
+          _buildSettingsItem(
+            Icons.file_download_outlined, 
+            "Export Data",
+            onTap: () => _exportTransactionData(context),
+          ),
           const SizedBox(height: 20),
           _buildSettingsItem(
             Icons.chat_bubble_outline, 
@@ -212,9 +225,329 @@ class _ProfileScreenState extends State<ProfileScreen> {
             "Change Password",
             onTap: () => _showChangePasswordDialog(context),
           ),
+          const SizedBox(height: 20),
+          _buildTestTools(context),
         ],
       ),
     );
+  }
+
+  Widget _buildTestTools(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 10, bottom: 10),
+          child: Text("Developer Tools (Testing)", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+        ),
+        _buildSettingsItem(
+          Icons.bug_report_outlined, 
+          "Generate Test Transactions",
+          onTap: () => _generateTestData(context),
+        ),
+        _buildSettingsItem(
+          Icons.add_circle_outline, 
+          "Add Manual Transaction",
+          onTap: () => _showManualTransactionDialog(context),
+        ),
+        _buildSettingsItem(
+          Icons.delete_sweep_outlined, 
+          "Clear Transaction History",
+          onTap: () => _clearTransactionHistory(context),
+        ),
+      ],
+    );
+  }
+
+  void _generateTestData(BuildContext context) async {
+    final cacheService = context.read<LocalCacheService>();
+    final authProvider = context.read<AuthProvider>();
+
+    final List<Map<String, dynamic>> testData = [
+      {'title': 'Starbucks Coffee', 'amount': 450.0, 'category': 'Food', 'isExpense': true, 'daysAgo': 0},
+      {'title': 'Amazon Shopping', 'amount': 1200.0, 'category': 'Shopping', 'isExpense': true, 'daysAgo': 1},
+      {'title': 'Monthly Salary', 'amount': 45000.0, 'category': 'Income', 'isExpense': false, 'daysAgo': 2},
+      {'title': 'Zomato Dinner', 'amount': 850.0, 'category': 'Food', 'isExpense': true, 'daysAgo': 3},
+      {'title': 'Uber Ride', 'amount': 200.0, 'category': 'Transport', 'isExpense': true, 'daysAgo': 5},
+      {'title': 'Netflix Sub', 'amount': 499.0, 'category': 'Entertainment', 'isExpense': true, 'daysAgo': 10},
+    ];
+
+    List<ExpenseTransaction> createdTxs = [];
+    for (var data in testData) {
+      final tx = ExpenseTransaction(
+        title: data['title'],
+        amount: data['amount'],
+        category: data['category'],
+        isExpense: data['isExpense'],
+        date: DateTime.now().subtract(Duration(days: data['daysAgo'])),
+      );
+      await cacheService.saveTransaction(tx);
+      createdTxs.add(tx);
+    }
+
+    // Trigger analysis with the new local data
+    await CloudService().runAutoAnalysisFromLocal(createdTxs);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Generated 6 test transactions! Graphs updating..."), backgroundColor: Colors.green),
+      );
+    }
+  }
+
+  void _showManualTransactionDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    String selectedCategory = 'Food';
+    bool isExpense = true;
+    DateTime selectedDate = DateTime.now();
+
+    final categories = ['Food', 'Shopping', 'Transport', 'Entertainment', 'Health', 'Education', 'Bills', 'Income', 'Other'];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text("Manual Transaction"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: "Title (e.g. Starbucks)"),
+                ),
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(labelText: "Amount"),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 15),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedCategory = val!),
+                  decoration: const InputDecoration(labelText: "Category"),
+                ),
+                const SizedBox(height: 15),
+                SwitchListTile(
+                  title: const Text("Is Expense?"),
+                  value: isExpense,
+                  onChanged: (val) => setDialogState(() => isExpense = val),
+                  activeColor: Colors.redAccent,
+                  inactiveThumbColor: Colors.green,
+                  inactiveTrackColor: Colors.green.withOpacity(0.5),
+                ),
+                ListTile(
+                  title: Text("Date: ${selectedDate.toLocal().toString().split(' ')[0]}"),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setDialogState(() => selectedDate = picked);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+            ElevatedButton(
+              onPressed: () async {
+                final title = titleController.text;
+                final amount = double.tryParse(amountController.text) ?? 0.0;
+                
+                if (title.isEmpty || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Please enter valid title and amount"), backgroundColor: Colors.redAccent),
+                  );
+                  return;
+                }
+
+                final cacheService = context.read<LocalCacheService>();
+                final tx = ExpenseTransaction(
+                  title: title,
+                  amount: amount,
+                  category: selectedCategory,
+                  isExpense: isExpense,
+                  date: selectedDate,
+                );
+                
+                await cacheService.saveTransaction(tx);
+                await CloudService().runAutoAnalysisFromLocal([tx]);
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Transaction added!"), backgroundColor: Colors.green),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
+              child: const Text("Save", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _exportTransactionData(BuildContext context) async {
+    final cacheService = context.read<LocalCacheService>();
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+    final transactions = await cacheService.getAllTransactions();
+
+    if (transactions.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No transactions to export."), backgroundColor: Colors.orange),
+        );
+      }
+      return;
+    }
+
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        header: (pw.Context context) => pw.Header(
+          level: 0,
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text("Finpath Financial Report", style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF006D77))),
+              pw.Text(DateFormat('dd MMM yyyy').format(DateTime.now())),
+            ],
+          ),
+        ),
+        footer: (pw.Context context) => pw.Container(
+          alignment: pw.Alignment.centerRight,
+          margin: const pw.EdgeInsets.only(top: 10),
+          child: pw.Text('Page ${context.pageNumber} of ${context.pagesCount}', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+        ),
+        build: (pw.Context context) {
+          return [
+            pw.SizedBox(height: 10),
+            pw.Text("Account Holder Details", style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.Divider(thickness: 1),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text("Name: ${profile?.name ?? 'N/A'}"),
+                    pw.Text("Age: ${profile?.age ?? 'N/A'}"),
+                    pw.Text("Gender: ${profile?.gender ?? 'N/A'}"),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text("Qualification: ${profile?.qualification ?? 'N/A'}"),
+                    pw.Text("Financial Goal: ${profile?.financialDetails ?? 'N/A'}"),
+                  ],
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 30),
+            pw.Text("Transaction History", style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 10),
+            pw.Table.fromTextArray(
+              context: context,
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF006D77)),
+              cellAlignment: pw.Alignment.centerLeft,
+              headerAlignment: pw.Alignment.centerLeft,
+              headers: ['Date', 'Title', 'Category', 'Type', 'Amount'],
+              data: transactions.map((tx) {
+                return [
+                  DateFormat('dd/MM/yyyy').format(tx.date),
+                  tx.title,
+                  tx.category,
+                  tx.isExpense ? 'Expense' : 'Income',
+                  'Rs. ${tx.amount.toStringAsFixed(2)}',
+                ];
+              }).toList(),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              children: [
+                pw.Text("Generated by Finpath App", style: pw.TextStyle(color: PdfColors.grey700, fontSize: 10)),
+              ],
+            ),
+          ];
+        },
+      ),
+    );
+
+    try {
+      final bytes = await pdf.save();
+      
+      // For Android/iOS, getApplicationDocumentsDirectory is a safe local storage.
+      // On Android, this usually maps to /data/user/0/com.package.name/app_flutter
+      // To save to the "Downloads" or "Documents" folder accessible by user, 
+      // we would need additional permissions or use the printing package's built-in save.
+      
+      // However, we will use the Printing package to show a 'Save as PDF' dialog 
+      // which is the most reliable way for users to pick a local destination.
+      
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => bytes,
+        name: "Finpath_Report_${DateTime.now().millisecondsSinceEpoch}",
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("PDF generation complete."), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Export failed: $e"), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
+  void _clearTransactionHistory(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Clear All Data?"),
+        content: const Text("This will permanently delete all local transaction history. This cannot be undone."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("Delete Everything", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final cacheService = context.read<LocalCacheService>();
+      await cacheService.clearTransactions();
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Transaction history cleared."), backgroundColor: Colors.orange),
+        );
+      }
+    }
   }
 
   Widget _buildBiometricToggle(BuildContext context, ProfileModel? profile) {
@@ -683,23 +1016,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
         height: 55,
         child: OutlinedButton.icon(
           onPressed: () async {
-            final confirm = await showDialog<bool>(
+            final result = await showDialog<int>(
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text("Log Out"),
-                content: const Text("Are you sure you want to log out?"),
+                content: const Text("Would you like to save your last 6 months of data to the cloud?"),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
                   TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text("Log Out", style: TextStyle(color: Colors.red)),
+                    onPressed: () => Navigator.pop(context, 0), // Cancel
+                    child: const Text("Cancel"),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, 1), // Logout No Backup
+                    child: const Text("Just Logout", style: TextStyle(color: Colors.grey)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context, 2), // Logout With Backup
+                    style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
+                    child: const Text("Backup & Logout", style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
             );
 
-            if (confirm == true) {
-              await authProvider.logout();
+            if (result != null && result > 0) {
+              final bool shouldBackup = (result == 2);
+              await authProvider.logout(shouldBackup: shouldBackup);
               if (context.mounted) {
                 Navigator.of(context, rootNavigator: true)
                     .pushNamedAndRemoveUntil('/', (route) => false);

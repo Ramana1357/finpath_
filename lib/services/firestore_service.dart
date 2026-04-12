@@ -42,4 +42,11 @@ class FirestoreService {
     final doc = await _db.collection('profiles').doc(uid).get();
     return doc.exists;
   }
+
+  // Transactions & Batch Helpers
+  WriteBatch getBatch() => _db.batch();
+
+  CollectionReference getTransactionsCollection() {
+    return _db.collection('transactions');
+  }
 }

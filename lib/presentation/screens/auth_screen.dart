@@ -40,21 +40,51 @@ class _AuthScreenState extends State<AuthScreen> {
               ElevatedButton(
                 onPressed: () async {
                   try {
+                    bool profileExists;
                     if (_isSignUp) {
-                      await authProvider.signUpWithEmail(
+                      profileExists = await authProvider.signUpWithEmail(
                         _emailController.text,
                         _passwordController.text,
                       );
                     } else {
-                      await authProvider.signInWithEmail(
+                      profileExists = await authProvider.signInWithEmail(
                         _emailController.text,
                         _passwordController.text,
                       );
                     }
+
+                    // After login, if profile exists, ask about data restore
+                    if (profileExists && context.mounted) {
+                      final shouldRestore = await showDialog<bool>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Restore Data?"),
+                          content: const Text("Would you like to fetch your last 6 months of transaction history from the cloud, or start fresh?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text("Fresh Start"),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                              child: const Text("Fetch 6 Months", style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (shouldRestore == true) {
+                        await authProvider.restoreData();
+                      }
+                    }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString())),
-                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
+                    }
                   }
                 },
                 child: Text(_isSignUp ? 'Sign Up' : 'Sign In'),
@@ -73,11 +103,39 @@ class _AuthScreenState extends State<AuthScreen> {
                     : const Text('Google Sign In'),
                 onPressed: () async {
                   try {
-                    await authProvider.signInWithGoogle();
+                    final profileExists = await authProvider.signInWithGoogle();
+                    
+                    if (profileExists && context.mounted) {
+                      final shouldRestore = await showDialog<bool>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => AlertDialog(
+                          title: const Text("Restore Data?"),
+                          content: const Text("Would you like to fetch your last 6 months of transaction history from the cloud, or start fresh?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text("Fresh Start"),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
+                              child: const Text("Fetch 6 Months", style: TextStyle(color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (shouldRestore == true) {
+                        await authProvider.restoreData();
+                      }
+                    }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString())),
-                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
+                    }
                   }
                 },
               ),

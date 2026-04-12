@@ -1,29 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
-import 'profile_screen.dart';
+import '../models/transaction.dart';
+import '../services/local_cache_service.dart';
 import '../services/cloud_service.dart';
 import '../models/cloud_insight.dart';
+import 'profile_screen.dart';
+import 'dart:math';
 
-// --- DATA MODEL ---
-class BudgetCategoryModel {
-  final String title;
-  final int percentage;
-  final double currentAmount;
-  final double targetAmount;
-  final String status;
-  final Color color;
+// --- LOCAL CALCULATOR HELPER ---
+class LocalHealthCalculator {
+  static Map<String, dynamic> calculate(List<ExpenseTransaction> transactions) {
+    if (transactions.isEmpty) {
+      print("DEBUG: No transactions found in Isar for Insights.");
+      return {'score': 0, 'savingsRate': 0.0, 'categories': <Map<String, dynamic>>[]};
+    }
 
-  BudgetCategoryModel({
-    required this.title,
-    required this.percentage,
-    required this.currentAmount,
-    required this.targetAmount,
-    required this.status,
-    required this.color,
-  });
+    // Filter for CURRENT MONTH only to match Dashboard
+    final now = DateTime.now();
+    final currentMonthTransactions = transactions.where((tx) => 
+      tx.date.month == now.month && tx.date.year == now.year
+    ).toList();
 
-  double get progress => (currentAmount / targetAmount).clamp(0.0, 1.0);
+    double totalIncome = 0;
+    double totalExpense = 0;
+    Map<String, double> categoryMap = {};
+
+    for (var tx in currentMonthTransactions) {
+      if (tx.isExpense) {
+        totalExpense += tx.amount;
+        categoryMap[tx.category] = (categoryMap[tx.category] ?? 0) + tx.amount;
+      } else {
+        totalIncome += tx.amount;
+      }
+    }
+
+    // Basic Health Score: (Savings / Income) * 100
+    double score = 0;
+    double savings = totalIncome - totalExpense;
+    double savingsRate = 0;
+
+    print("DEBUG: Insights Calculation (Current Month: ${now.month}/${now.year})");
+    print("DEBUG: Count: ${currentMonthTransactions.length}, Total Income: $totalIncome, Total Expense: $totalExpense");
+
+    if (totalIncome > 0) {
+      savingsRate = (savings / totalIncome);
+      // Clamp between 0 and 1 for the score
+      score = (savingsRate.clamp(0.0, 1.0) * 100);
+      print("DEBUG: Savings Rate: ${(savingsRate * 100).toStringAsFixed(1)}%, Score: $score");
+    } else {
+      // If no income this month, score is based on spending volume vs a 'warning' threshold
+      score = max(0, 50 - (totalExpense / 1000)).toDouble();
+      print("DEBUG: No income this month. Score: $score");
+    }
+
+    var sortedCats = categoryMap.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    var topCategories = sortedCats.take(3).map((e) => {
+      'category': e.key,
+      'amount': e.value,
+      'percentage': totalExpense > 0 ? (e.value / totalExpense * 100).toInt() : 0,
+    }).toList();
+
+    return {
+      'score': score.toInt(),
+      'savingsRate': savingsRate,
+      'categories': topCategories,
+      'totalExpense': totalExpense,
+      'totalIncome': totalIncome,
+    };
+  }
 }
 
 class InsightsScreen extends StatefulWidget {
@@ -43,16 +90,9 @@ class _InsightsScreenState extends State<InsightsScreen> {
   static const Color _accentTeal = Color(0xFF83C5BE);
 
   @override
-  void initState() {
-    super.initState();
-    // Debug: Print the user ID to help sync with Python script
-    _cloudService.getUserId().then((uid) {
-      print("DEBUG: InsightsScreen active for User ID: $uid");
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final cacheService = context.read<LocalCacheService>();
+
     return Scaffold(
       backgroundColor: _backgroundGray,
       body: SafeArea(
@@ -61,8 +101,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildAppBar(context),
-              StreamBuilder<CloudInsight?>(
-                stream: _cloudService.getInsightsStream(),
+              StreamBuilder<List<ExpenseTransaction>>(
+                stream: cacheService.watchTransactions(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
@@ -71,30 +111,38 @@ class _InsightsScreenState extends State<InsightsScreen> {
                     );
                   }
 
-                  final insight = snapshot.data;
-                  if (insight == null) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 50),
-                      child: _buildNoDataState(),
-                    );
-                  }
+                  final transactions = snapshot.data ?? [];
+                  final localStats = LocalHealthCalculator.calculate(transactions);
 
                   return Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHealthScoreCard(insight),
+                        _buildHealthScoreCard(localStats),
                         const SizedBox(height: 25),
                         _buildStrategySelector(),
                         const SizedBox(height: 25),
-                        _buildRealtimeCategories(insight),
+                        _buildRealtimeCategories(localStats['categories'] as List),
                         const SizedBox(height: 25),
-                        if (insight.anomalies.isNotEmpty) ...[
-                          _buildAnomaliesCard(insight),
-                          const SizedBox(height: 25),
-                        ],
-                        _buildEndOfWeekCheckCard(insight),
+                        // Keep AI Insights as a secondary cloud-powered section
+                        StreamBuilder<CloudInsight?>(
+                          stream: _cloudService.getInsightsStream(),
+                          builder: (context, cloudSnapshot) {
+                            final insight = cloudSnapshot.data;
+                            if (insight == null) return const SizedBox.shrink();
+                            
+                            return Column(
+                              children: [
+                                if (insight.anomalies.isNotEmpty) ...[
+                                  _buildAnomaliesCard(insight),
+                                  const SizedBox(height: 25),
+                                ],
+                                _buildEndOfWeekCheckCard(insight),
+                              ],
+                            );
+                          },
+                        ),
                         const SizedBox(height: 20),
                       ],
                     ),
@@ -213,8 +261,21 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
-  Widget _buildHealthScoreCard(CloudInsight insight) {
-    Color scoreColor = insight.healthScore > 70 ? Colors.green : (insight.healthScore > 40 ? Colors.orange : Colors.red);
+  Widget _buildHealthScoreCard(Map<String, dynamic> stats) {
+    final int score = stats['score'];
+    final double savingsRate = stats['savingsRate'] ?? 0.0;
+    Color scoreColor = score > 70 ? Colors.green : (score > 40 ? Colors.orange : Colors.red);
+
+    String message = "";
+    if (score > 80) {
+      message = "Excellent! You're saving ${(savingsRate * 100).toInt()}% of your income.";
+    } else if (score > 60) {
+      message = "Good job. You're living within your means.";
+    } else if (score > 0) {
+      message = "Warning: Your expenses are high relative to your income.";
+    } else {
+      message = "Critical: You are spending more than you earn.";
+    }
 
     return Container(
       padding: const EdgeInsets.all(25),
@@ -232,13 +293,13 @@ class _InsightsScreenState extends State<InsightsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: scoreColor.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
-                child: Text("${insight.healthScore}/100", style: TextStyle(color: scoreColor, fontWeight: FontWeight.bold)),
+                child: Text("$score/100", style: TextStyle(color: scoreColor, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
           const SizedBox(height: 20),
           LinearProgressIndicator(
-            value: insight.healthScore / 100,
+            value: score / 100,
             backgroundColor: _backgroundGray,
             color: scoreColor,
             minHeight: 12,
@@ -246,9 +307,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
           ),
           const SizedBox(height: 15),
           Text(
-            insight.healthScore > 70 
-              ? "Excellent! You're saving more than 30% of your income." 
-              : "Warning: Your expenses are high relative to your income.",
+            message,
             style: TextStyle(color: Colors.grey[600], fontSize: 13, fontStyle: FontStyle.italic),
           ),
         ],
@@ -256,7 +315,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
-  Widget _buildRealtimeCategories(CloudInsight insight) {
+  Widget _buildRealtimeCategories(List<dynamic> categories) {
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
@@ -268,20 +327,22 @@ class _InsightsScreenState extends State<InsightsScreen> {
         children: [
           const Text("Top Spending Areas", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTeal)),
           const SizedBox(height: 20),
-          ...insight.topCategories.map((cat) => Padding(
+          if (categories.isEmpty) 
+            const Text("No expenses recorded yet.", style: TextStyle(color: Colors.grey)),
+          ...categories.map((cat) => Padding(
             padding: const EdgeInsets.only(bottom: 20),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(cat.category, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text("₹${cat.amount.toInt()} (${cat.percentage}%)", style: const TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                    Text(cat['category'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text("₹${(cat['amount'] as double).toInt()} (${cat['percentage']}%)", style: const TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 8),
                 LinearProgressIndicator(
-                  value: cat.percentage / 100,
+                  value: cat['percentage'] / 100,
                   backgroundColor: _backgroundGray,
                   color: _accentTeal,
                   minHeight: 6,

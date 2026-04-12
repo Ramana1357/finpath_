@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
 import 'package:google_generative_ai/google_generative_ai.dart'; // Added Dart SDK
 import '../models/cloud_transaction.dart';
+import '../models/transaction.dart';
 import '../models/cloud_insight.dart';
 
 class CloudService {
@@ -67,27 +68,50 @@ class CloudService {
         "date": tx.date.toIso8601String()
       }).toList();
 
-      // 1. Get raw stats from Python (Pure Math, very fast)
-      final String pyResultJson = await _pythonChannel.invokeMethod('runInsights', {
-        'transactions': jsonEncode(txData),
-        'physicalCash': 0.0,
-      });
-      final Map<String, dynamic> pyStats = jsonDecode(pyResultJson);
-
-      if (pyStats['status'] == 'success') {
-        // 2. Generate coaching cards using Dart Google AI SDK (Low Cost)
-        final feedSummaries = await _generateDartAiCoach(pyStats);
-
-        // 3. Update Firestore
-        await _db.collection('insights').doc(uid).set({
-          "health_score": pyStats['health_score'],
-          "feed_summaries": feedSummaries,
-          "lastUpdated": FieldValue.serverTimestamp(),
-          "status": "AI Updated (Dart SDK)"
-        }, SetOptions(merge: true));
-      }
+      await _runAnalysisWithData(uid, txData);
     } catch (e) {
       print("Analysis Error: $e");
+    }
+  }
+
+  Future<void> runAutoAnalysisFromLocal(List<ExpenseTransaction> transactions) async {
+    String? uid = _auth.currentUser?.uid;
+    if (uid == null || transactions.isEmpty) return;
+
+    try {
+      final txData = transactions.map((tx) => {
+        "title": tx.title,
+        "amount": tx.amount,
+        "isExpense": tx.isExpense,
+        "date": tx.date.toIso8601String()
+      }).toList();
+
+      await _runAnalysisWithData(uid, txData);
+    } catch (e) {
+      print("Analysis Error: $e");
+    }
+  }
+
+  Future<void> _runAnalysisWithData(String uid, List<Map<String, dynamic>> txData) async {
+    // 1. Get raw stats from Python (Pure Math, very fast)
+    final String pyResultJson = await _pythonChannel.invokeMethod('runInsights', {
+      'transactions': jsonEncode(txData),
+      'physicalCash': 0.0,
+    });
+    final Map<String, dynamic> pyStats = jsonDecode(pyResultJson);
+
+    if (pyStats['status'] == 'success') {
+      // 2. Generate coaching cards using Dart Google AI SDK (Low Cost)
+      final feedSummaries = await _generateDartAiCoach(pyStats);
+
+      // 3. Update Firestore
+      await _db.collection('insights').doc(uid).set({
+        "health_score": pyStats['health_score'],
+        "top_categories": pyStats['categories'], // Assuming Python returns this
+        "feed_summaries": feedSummaries,
+        "lastUpdated": FieldValue.serverTimestamp(),
+        "status": "AI Updated (Local Data)"
+      }, SetOptions(merge: true));
     }
   }
 

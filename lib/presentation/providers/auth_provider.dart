@@ -49,11 +49,20 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadProfile(uid);
   }
 
+  bool _needsRestoreCheck = false;
+  bool get needsRestoreCheck => _needsRestoreCheck;
+
+  void completeRestoreCheck() {
+    _needsRestoreCheck = false;
+    notifyListeners();
+  }
+
   Future<bool> signInWithGoogle() async {
     _setLoading(true);
     try {
       final profileExists = await _userRepository.signInWithGoogle();
       _isBiometricAuthenticated = true;
+      if (profileExists) _needsRestoreCheck = true;
       _setLoading(false);
       return profileExists;
     } catch (e) {
@@ -67,6 +76,7 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final profileExists = await _userRepository.signInWithEmail(email, password);
       _isBiometricAuthenticated = true;
+      if (profileExists) _needsRestoreCheck = true;
       _setLoading(false);
       return profileExists;
     } catch (e) {
@@ -125,24 +135,38 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> restoreData() async {
+    if (_user != null) {
+      _setLoading(true);
+      try {
+        await _userRepository.restoreTransactions(_user!.uid);
+      } finally {
+        _setLoading(false);
+      }
+    }
+  }
+
+  Future<void> logout({bool shouldBackup = false}) async {
     final uid = _user?.uid;
     
-    // 1. Clear state immediately for instant UI response
+    // 1. Perform background backup if requested
+    if (uid != null && shouldBackup) {
+      _setLoading(true);
+      try {
+        await _userRepository.logout(uid, shouldBackup: true);
+      } finally {
+        _setLoading(false);
+      }
+    } else if (uid != null) {
+      await _userRepository.logout(uid, shouldBackup: false);
+    }
+
+    // 2. Clear state immediately for instant UI response
     _user = null;
     _profile = null;
     _isBiometricAuthenticated = false;
     _isLoading = false; 
     notifyListeners();
-
-    // 2. Perform background cleanup
-    if (uid != null) {
-      try {
-        await _userRepository.logout(uid);
-      } catch (e) {
-        debugPrint("Background logout cleanup error: $e");
-      }
-    }
   }
 
   void _setLoading(bool value) {
