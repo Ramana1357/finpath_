@@ -28,7 +28,7 @@ android {
         versionName = flutter.versionName
 
         ndk {
-            // Python 3.13 only supports 64-bit ABIs on Android
+            // Python 3.13 and 3.14 primarily support 64-bit ABIs on Android
             abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
         }
     }
@@ -42,8 +42,11 @@ android {
 
 chaquopy {
     defaultConfig {
+        // Stable version 3.13 for Android 14 compatibility.
         version = "3.13"
-        buildPython("C:/Users/santh/AppData/Local/Programs/Python/Python313/python.exe")
+        
+        // Chaquopy will use the Python version found in your system PATH.
+        // Ensure Python 3.13 is installed and added to your Environment Variables.
         
         pip {
             install("requests")

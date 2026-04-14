@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:telephony/telephony.dart';
+import '../main.dart'; // To access backgroundMessageHandler
 import 'dashboard_screen.dart';
 import 'vault_screen.dart';
 import 'insights_screen.dart';
@@ -6,10 +9,10 @@ import 'profile_screen.dart';
 import 'feed_screen.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
-import '../data/models/profile_model.dart';
 import '../models/transaction.dart';
 import '../services/cloud_service.dart';
 import '../services/local_cache_service.dart';
+import '../utils/sms_parser.dart';
 
 class MainHub extends StatefulWidget {
   const MainHub({super.key});
@@ -21,11 +24,15 @@ class MainHub extends StatefulWidget {
 class _MainHubState extends State<MainHub> {
   int _selectedIndex = 0;
   Stream<List<ExpenseTransaction>>? _localStream;
+  final Telephony telephony = Telephony.instance;
 
   @override
   void initState() {
     super.initState();
-    // Use the cacheService from Provider
+    
+    // START THE SMS ENGINE
+    _initSmsIntegration();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final cacheService = context.read<LocalCacheService>();
       setState(() {
@@ -42,6 +49,62 @@ class _MainHubState extends State<MainHub> {
     });
   }
 
+  Future<void> _initSmsIntegration() async {
+    // 1. Force Permission Dialog for Android 14
+    PermissionStatus status = await Permission.sms.request();
+
+    if (status.isGranted) {
+      debugPrint("SMS Engine: ONLINE");
+      
+      telephony.listenIncomingSms(
+        onNewMessage: (SmsMessage message) {
+          // IMMEDIATE VISUAL PROOF on your phone screen
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("SMS Detected... Processing Transaction"),
+              backgroundColor: Colors.blueGrey,
+              duration: Duration(seconds: 1),
+            ),
+          );
+          _processMessage(message.body);
+        },
+        onBackgroundMessage: backgroundMessageHandler,
+      );
+    }
+  }
+
+  Future<void> _processMessage(String? body) async {
+    if (body == null) return;
+
+    // RUN THE BRAIN (Regex Engine)
+    final parsed = SmsParser.parse(body);
+
+    if (parsed.amount > 0) {
+      final cacheService = context.read<LocalCacheService>();
+      
+      final newTx = ExpenseTransaction(
+        title: parsed.title,
+        amount: parsed.amount,
+        date: DateTime.now(),
+        isExpense: parsed.isExpense,
+        category: 'SMS Auto-Log',
+        smsRawText: body,
+      );
+
+      await cacheService.saveTransaction(newTx);
+
+      // SUCCESS POP-UP
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Logged: ₹${parsed.amount} - ${parsed.isExpense ? 'Expense' : 'Income'}"),
+          backgroundColor: const Color(0xFF006D77),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // ... rest of the file ...
   void _showRestoreDialog() async {
     final authProvider = context.read<AuthProvider>();
     
@@ -89,7 +152,6 @@ class _MainHubState extends State<MainHub> {
 
   @override
   Widget build(BuildContext context) {
-    final cloudService = CloudService();
     final authProvider = context.watch<AuthProvider>();
     final totalPoints = authProvider.profile?.lifetimePoints ?? 0;
 

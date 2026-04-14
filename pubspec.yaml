@@ -53,6 +53,7 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.2
   share_plus: ^10.1.4
+  telephony: ^0.2.0
 
 dev_dependencies:
   flutter_test:
