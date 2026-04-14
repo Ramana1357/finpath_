@@ -1,26 +1,84 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:telephony/telephony.dart';
+import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
 import 'data/repositories/user_repository.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/auth_screen.dart';
 import 'presentation/screens/biometric_auth_screen.dart';
 import 'presentation/screens/profile_setup_screen.dart';
-import 'screens/main_hub.dart'; // IMPORT THE NEW HUB
+import 'screens/main_hub.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/local_cache_service.dart';
+import 'utils/sms_parser.dart';
+import 'models/transaction.dart';
+import 'data/models/profile_model.dart';
+
+// --- TOP-LEVEL BACKGROUND HANDLER (MANDATORY FOR TELEPHONY) ---
+@pragma('vm:entry-point')
+void backgroundMessageHandler(SmsMessage message) async {
+  final String? body = message.body;
+  if (body == null) return;
+
+  try {
+    // 1. Use Support Directory for background reliability on physical devices
+    final dir = await getApplicationSupportDirectory();
+    
+    Isar isar;
+    if (Isar.getInstance() == null) {
+      isar = await Isar.open(
+        [ProfileModelSchema, ExpenseTransactionSchema],
+        directory: dir.path,
+      );
+    } else {
+      isar = Isar.getInstance()!;
+    }
+
+    // 2. Parse using the rebuilt Regex Engine
+    final parsed = SmsParser.parse(body);
+
+    // 3. Save if valid
+    if (parsed.amount > 0) {
+      final newTx = ExpenseTransaction(
+        title: parsed.isExpense ? "Auto-Log (Background)" : "Income-Log (Background)",
+        amount: parsed.amount,
+        date: DateTime.now(),
+        isExpense: parsed.isExpense,
+        category: 'SMS Auto-Log',
+        smsRawText: body,
+      );
+
+      await isar.writeTxn(() async {
+        await isar.expenseTransactions.put(newTx);
+      });
+    }
+  } catch (e) {
+    debugPrint("Background SMS Error: $e");
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
+  // --- REGISTER SMS LISTENER (Physical Device Link) ---
+  final Telephony telephony = Telephony.instance;
+  bool? permissionsGranted = await telephony.requestPhoneAndSmsPermissions;
+  if (permissionsGranted != null && permissionsGranted) {
+    telephony.listenIncomingSms(
+      onNewMessage: (SmsMessage message) {
+        // Foreground handling handled in MainHub, but keeping registered here
+      },
+      onBackgroundMessage: backgroundMessageHandler,
+    );
+  }
+
   final cacheService = LocalCacheService();
   await cacheService.init();
   
-  // Silent cleanup of transactions older than 6 months
-  cacheService.cleanupOldTransactions();
-
   final userRepository = UserRepository(
     authService: AuthService(),
     firestoreService: FirestoreService(),
@@ -45,7 +103,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Finpath',
-      debugShowCheckedModeBanner: false, // REMOVED DEBUG BANNER
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.teal,
         useMaterial3: true,
@@ -62,25 +120,13 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
 
-    if (!authProvider.isAuthenticated) {
-      return const AuthScreen();
-    }
-
-    if (!authProvider.isBiometricAuthenticated) {
-      return const BiometricAuthScreen();
-    }
-
+    if (!authProvider.isAuthenticated) return const AuthScreen();
+    if (!authProvider.isBiometricAuthenticated) return const BiometricAuthScreen();
     if (authProvider.isLoading && !authProvider.hasProfile) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    if (!authProvider.hasProfile) return const ProfileSetupScreen();
 
-    if (!authProvider.hasProfile) {
-      return const ProfileSetupScreen();
-    }
-
-    // Success! Show the Main Hub with all your screens
     return const MainHub();
   }
 }

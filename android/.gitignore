@@ -1,3 +1,4 @@
+.gitignore
 gradle/wrapper/gradle-wrapper.jar
 /.gradle
 /captures/
@@ -12,3 +13,7 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+*.json
+backend/*.json
+*.env
+.env
