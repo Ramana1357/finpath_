@@ -1,29 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
-import 'cloud_feed_screen.dart'; // Added
+import 'cloud_feed_screen.dart';
 import '../services/cloud_service.dart';
 import '../services/local_cache_service.dart';
+import '../services/finance_feed_service.dart';
 import '../models/transaction.dart';
-import '../models/cloud_insight.dart'; // ADDED THIS
+import '../models/cloud_insight.dart';
+import '../models/finance_tip_model.dart';
+import '../widgets/daily_quiz_card.dart';
 
-// --- DATA MODELS (Ready for Backend Integration) ---
-
-class QuizModel {
-  final String question;
-  final List<String> options;
-  final int points;
-
-  QuizModel({required this.question, required this.options, required this.points});
-}
+// --- DATA MODELS ---
 
 class OpportunityModel {
   final String title;
   final String company;
   final String salaryOrBadge;
-  final String type; // e.g., "Intern", "Remote"
+  final String type;
   final IconData icon;
+  final String url;
 
   OpportunityModel({
     required this.title,
@@ -31,6 +30,7 @@ class OpportunityModel {
     required this.salaryOrBadge,
     required this.type,
     required this.icon,
+    required this.url,
   });
 }
 
@@ -39,20 +39,15 @@ class ScholarshipModel {
   final String coverage;
   final String awardOrDeadline;
   final Color deadlineColor;
+  final String url;
 
   ScholarshipModel({
     required this.title,
     required this.coverage,
     required this.awardOrDeadline,
+    required this.url,
     this.deadlineColor = Colors.grey,
   });
-}
-
-class TipModel {
-  final String title;
-  final String readTime;
-
-  TipModel({required this.title, required this.readTime});
 }
 
 class FeedScreen extends StatefulWidget {
@@ -72,9 +67,10 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMixin {
   late final Stream<List<ExpenseTransaction>> _transactionStream;
   final LocalCacheService _cacheService = LocalCacheService();
+  final FinanceFeedService _feedService = FinanceFeedService();
 
   @override
-  bool get wantKeepAlive => true; // This prevents the page from refreshing when you switch tabs
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -88,7 +84,6 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
       _transactionStream = _cacheService.watchTransactions();
     });
     
-    // Auto-trigger analysis when new transactions arrive
     _transactionStream.listen((transactions) {
       if (transactions.isNotEmpty) {
         CloudService().runAutoAnalysisFromLocal(transactions);
@@ -96,52 +91,26 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     });
   }
 
-  // --- STATE VARIABLES ---
-
-  final QuizModel _dailyQuiz = QuizModel(
-    question: "What happens to your money if the inflation rate is higher than your savings account interest rate?",
-    options: ["Purchasing power increases", "Purchasing power decreases"],
-    points: 50,
-  );
-
-  final List<OpportunityModel> _opportunities = [
-    OpportunityModel(
-      title: "Software Development Intern",
-      company: "TechNova Solutions",
-      salaryOrBadge: "₹25,000/mo",
-      type: "Intern",
-      icon: Icons.work_outline,
-    ),
-    OpportunityModel(
-      title: "Data Analyst Intern",
-      company: "FinServe",
-      salaryOrBadge: "Remote",
-      type: "Remote",
-      icon: Icons.work_outline,
-    ),
-  ];
-
-  final List<ScholarshipModel> _scholarships = [
-    ScholarshipModel(
-      title: "National Tech Scholarship",
-      coverage: "Covers 50% Tuition",
-      awardOrDeadline: "Closes in 5 Days",
-      deadlineColor: Colors.red,
-    ),
-    ScholarshipModel(
-      title: "Women in STEM Grant",
-      coverage: "₹50,000 Award",
-      awardOrDeadline: "₹50,000 Award",
-      deadlineColor: Colors.orange,
-    ),
-  ];
-
-  final List<TipModel> _tips = [
-    TipModel(title: "The 50/30/20 Rule Explained simply.", readTime: "3 min read"),
-    TipModel(title: "How to build an emergency corpus on a student budget.", readTime: "5 min read"),
-  ];
-
-  int? _selectedQuizOption;
+  Future<void> _launchURL(String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not launch $urlString')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('An error occurred while trying to open the link.')),
+        );
+      }
+    }
+  }
 
   // --- UI COLORS ---
   static const Color _primaryTeal = Color(0xFF006D77);
@@ -150,129 +119,262 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Required for AutomaticKeepAliveClientMixin
+    super.build(context);
     return Scaffold(
       backgroundColor: _backgroundGray,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildAppBar(context),
-              _buildAiCoachSection(),
-              _buildQuizCard(),
-              _buildSectionHeader("Opportunities for You", true, onSeeAll: () {
-                 // Optional: Add logic for View All Opportunities
-              }),
-              _buildOpportunitiesList(),
-              _buildSectionHeader("Active Scholarships", false),
-              _buildScholarshipsList(),
-              _buildSectionHeader("Quick Financial Tips", false),
-              _buildTipsList(),
-              const SizedBox(height: 30),
-            ],
-          ),
+        child: CustomScrollView(
+          cacheExtent: 1000,
+          slivers: [
+            SliverToBoxAdapter(child: _buildAppBar(context)),
+            SliverToBoxAdapter(child: _buildAiCoachSection()),
+            const SliverToBoxAdapter(child: DailyQuizCard()),
+            SliverToBoxAdapter(child: _buildSectionHeader("Opportunities for You", false)),
+            SliverToBoxAdapter(child: _buildOpportunitiesList()),
+            SliverToBoxAdapter(child: _buildSectionHeader("Active Scholarships", false)),
+            SliverToBoxAdapter(child: _buildScholarshipsList()),
+            SliverToBoxAdapter(child: _buildSectionHeader("Financial Insights & Tips", false)),
+            _buildDynamicSliverTipsList(),
+            const SliverPadding(padding: EdgeInsets.only(bottom: 30)),
+          ],
         ),
       ),
     );
   }
 
-  // --- WIDGET COMPONENTS ---
+  // --- DYNAMIC TIPS SECTION ---
 
-  Widget _buildAiCoachSection() {
-    return StreamBuilder<CloudInsight?>(
-      stream: CloudService().getInsightsStream(),
+  Widget _buildDynamicSliverTipsList() {
+    return StreamBuilder<List<FinanceTipModel>>(
+      stream: _feedService.getLatestTips(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data?.feedSummaries.isEmpty == true) {
-          return const SizedBox.shrink();
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return SliverToBoxAdapter(child: _buildTipShimmer());
+        }
+        
+        if (snapshot.hasError) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text("Could not load latest tips. Check your connection."),
+            ),
+          );
         }
 
-        final summaries = snapshot.data!.feedSummaries;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader("AI Financial Coach", false),
-            SizedBox(
-              height: 140,
-              child: ListView.builder(
-                padding: const EdgeInsets.only(left: 20),
-                scrollDirection: Axis.horizontal,
-                itemCount: summaries.length,
-                itemBuilder: (context, index) {
-                  final summary = summaries[index];
-                  
-                  // Map type to colors/icons
-                  Color cardColor;
-                  IconData icon;
-                  switch (summary.type) {
-                    case 'positive':
-                      cardColor = Colors.green[50]!;
-                      icon = Icons.stars_rounded;
-                      break;
-                    case 'negative':
-                    case 'alert':
-                      cardColor = Colors.red[50]!;
-                      icon = Icons.warning_amber_rounded;
-                      break;
-                    case 'warning':
-                      cardColor = Colors.orange[50]!;
-                      icon = Icons.lightbulb_outline;
-                      break;
-                    default:
-                      cardColor = Colors.blue[50]!;
-                      icon = Icons.info_outline;
-                  }
-
-                  return Container(
-                    width: 280,
-                    margin: const EdgeInsets.only(right: 15),
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(icon, size: 20, color: Colors.black87),
-                            const SizedBox(width: 8),
-                            Text(
-                              summary.title,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          summary.message,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.black.withOpacity(0.7),
-                            height: 1.3,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+        final tips = snapshot.data ?? [];
+        if (tips.isEmpty) {
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Text("Stay tuned! New financial tips are arriving soon."),
             ),
-            const SizedBox(height: 10),
-          ],
+          );
+        }
+
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                return _buildTipCard(tips[index]);
+              },
+              childCount: tips.length,
+            ),
+          ),
         );
       },
     );
   }
+
+  Widget _buildTipCard(FinanceTipModel tip) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: CachedNetworkImage(
+                imageUrl: tip.imageUrl,
+                memCacheWidth: 600, 
+                maxWidthDiskCache: 1000,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(color: Colors.grey[200]),
+                errorWidget: (context, url, error) => Container(
+                  color: _accentTeal.withOpacity(0.2),
+                  child: const Icon(Icons.image_not_supported, color: _primaryTeal),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _primaryTeal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        tip.type.replaceAll('_', ' ').toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: _primaryTeal,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      tip.source,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  tip.title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  tip.content,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Colors.black.withOpacity(0.7),
+                  ),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                    const SizedBox(width: 5),
+                    Text(
+                      _getTimeAgo(tip.timestamp),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => _showFullTip(tip),
+                      child: const Text("Read More", style: TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTimeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inDays > 0) return "${difference.inDays}d ago";
+    if (difference.inHours > 0) return "${difference.inHours}h ago";
+    if (difference.inMinutes > 0) return "${difference.inMinutes}m ago";
+    return "just now";
+  }
+
+  void _showFullTip(FinanceTipModel tip) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.85,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              width: 40,
+              height: 5,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(25),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tip.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Text("Source: ${tip.source}", style: const TextStyle(color: _primaryTeal, fontStyle: FontStyle.italic)),
+                    const SizedBox(height: 20),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: CachedNetworkImage(
+                        imageUrl: tip.imageUrl,
+                        memCacheWidth: 800,
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    Text(
+                      tip.content,
+                      style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.black87),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipShimmer() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey[300]!,
+        highlightColor: Colors.grey[100]!,
+        child: Column(
+          children: List.generate(2, (index) => Container(
+            height: 300,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
+          )),
+        ),
+      ),
+    );
+  }
+
+  // --- APP BAR ---
 
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
@@ -310,10 +412,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               ),
               GestureDetector(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProfileScreen()),
-                  );
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
                 },
                 child: CircleAvatar(
                   backgroundColor: _accentTeal,
@@ -327,308 +426,76 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildQuizCard() {
-    final authProvider = context.watch<AuthProvider>();
-    final profile = authProvider.profile;
-    
-    // Check if already answered today (Persistent)
-    final now = DateTime.now();
-    bool alreadyDoneToday = false;
-    if (profile?.lastQuizDate != null) {
-      final lastDate = profile!.lastQuizDate!;
-      if (lastDate.year == now.year && lastDate.month == now.month && lastDate.day == now.day) {
-        alreadyDoneToday = true;
-      }
-    }
-    
-    // Local state for immediate UI feedback
-    bool hasJustAnswered = _selectedQuizOption != null;
-    bool showAsCompleted = alreadyDoneToday || hasJustAnswered;
-    
-    // Determine points to display in the badge
-    int pointsAwarded = 0;
-    if (hasJustAnswered) {
-      pointsAwarded = _selectedQuizOption == 1 ? _dailyQuiz.points : (_dailyQuiz.points * 0.2).toInt();
-    } else if (alreadyDoneToday) {
-      // If they already did it today but we don't know the score, 
-      // we can just show a checkmark or generic "Points Added"
-      // Ideally we'd store the score/selection too, but this satisfies the requirement.
-    }
-
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.orange.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Daily FinQuiz", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _primaryTeal)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: showAsCompleted 
-                    ? (alreadyDoneToday || _selectedQuizOption == 1 ? Colors.green[50] : Colors.orange[50]) 
-                    : Colors.orange[50],
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Text(
-                  showAsCompleted 
-                    ? (alreadyDoneToday ? "Completed" : "+$pointsAwarded Pts Added") 
-                    : "+${_dailyQuiz.points} Pts",
-                  style: TextStyle(
-                    color: showAsCompleted 
-                      ? (alreadyDoneToday || _selectedQuizOption == 1 ? Colors.green : Colors.orange) 
-                      : Colors.orange,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          Text(_dailyQuiz.question, style: const TextStyle(fontSize: 15, height: 1.4, color: Colors.black87)),
-          const SizedBox(height: 20),
-          ...List.generate(_dailyQuiz.options.length, (index) {
-            bool isSelected = _selectedQuizOption == index;
-            bool isCorrect = index == 1; // "Decreases" is index 1
-
-            // If already done today (persistent), we just grey out everything or highlight correct
-            bool disableInteractions = showAsCompleted;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                onTap: disableInteractions ? null : () {
-                  setState(() {
-                    _selectedQuizOption = index;
-                    int pointsToAward = isCorrect ? _dailyQuiz.points : (_dailyQuiz.points * 0.2).toInt();
-                    widget.onPointsAwarded(pointsToAward);
-                  });
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: isSelected 
-                      ? (isCorrect ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1))
-                      : (alreadyDoneToday && isCorrect ? Colors.green.withOpacity(0.05) : _backgroundGray.withOpacity(0.5)),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected 
-                        ? (isCorrect ? Colors.green : Colors.red) 
-                        : (alreadyDoneToday && isCorrect ? Colors.green.withOpacity(0.3) : Colors.transparent),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _dailyQuiz.options[index],
-                        style: TextStyle(
-                          color: isSelected 
-                            ? (isCorrect ? Colors.green : Colors.red) 
-                            : (alreadyDoneToday && isCorrect ? Colors.green : Colors.black54),
-                          fontWeight: (isSelected || (alreadyDoneToday && isCorrect)) ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                      if (isSelected || (alreadyDoneToday && isCorrect)) ...[
-                        const SizedBox(width: 10),
-                        Icon(
-                          isCorrect ? Icons.check_circle : Icons.cancel,
-                          size: 16,
-                          color: isCorrect ? Colors.green : Colors.red,
-                        ),
-                      ]
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-          if (showAsCompleted)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Center(
-                child: Text(
-                  alreadyDoneToday 
-                    ? "You've already completed today's quiz! Come back tomorrow."
-                    : (_selectedQuizOption == 1 
-                        ? "Correct! Your purchasing power drops as prices rise." 
-                        : "Not quite. Inflation makes things more expensive, reducing what you can buy."),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12, 
-                    color: (alreadyDoneToday || _selectedQuizOption == 1) ? Colors.green : Colors.red, 
-                    fontStyle: FontStyle.italic
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCloudActivitySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildSectionHeader("Recent Activity", true, onSeeAll: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CloudFeedScreen()),
-          );
-        }),
-        SizedBox(
-          height: 120,
-          child: StreamBuilder<List<ExpenseTransaction>>(
-            stream: _transactionStream,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final transactions = snapshot.data ?? [];
-              if (transactions.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.only(left: 20),
-                  child: Text("No recent cloud activity found.", style: TextStyle(color: Colors.grey, fontSize: 13)),
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.only(left: 20),
-                scrollDirection: Axis.horizontal,
-                itemCount: transactions.take(5).length, // Show top 5
-                itemBuilder: (context, index) {
-                  final tx = transactions[index];
-                  return Container(
-                    width: 180,
-                    margin: const EdgeInsets.only(right: 15),
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              tx.isExpense ? Icons.arrow_upward : Icons.arrow_downward,
-                              size: 14,
-                              color: tx.isExpense ? Colors.red : Colors.green,
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                tx.title,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '₹${tx.amount.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTeal),
-                        ),
-                        Text(
-                          '${tx.date.day}/${tx.date.month}',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 10),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 10),
-      ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title, bool showViewAll, {VoidCallback? onSeeAll}) {
+  Widget _buildSectionHeader(String title, bool showSeeAll, {VoidCallback? onSeeAll}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 15),
+      padding: const EdgeInsets.fromLTRB(20, 25, 20, 15),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-          if (showViewAll)
-            GestureDetector(
-              onTap: onSeeAll,
-              child: const Text("View All", style: TextStyle(color: _primaryTeal, fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryTeal)),
+          if (showSeeAll)
+            TextButton(
+              onPressed: onSeeAll,
+              child: const Text('See All', style: TextStyle(color: _accentTeal, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
     );
   }
 
+  // --- OPPORTUNITIES SECTION ---
+
   Widget _buildOpportunitiesList() {
+    final List<OpportunityModel> _opportunities = [
+      OpportunityModel(
+        title: "Software Development Intern", 
+        company: "TechNova Solutions", 
+        salaryOrBadge: "₹25,000/mo", 
+        type: "Intern", 
+        icon: Icons.work_outline,
+        url: "https://unstop.com/",
+      ),
+      OpportunityModel(
+        title: "Data Analyst Intern", 
+        company: "FinServe", 
+        salaryOrBadge: "Remote", 
+        type: "Remote", 
+        icon: Icons.work_outline,
+        url: "https://unstop.com/",
+      ),
+    ];
+
     return SizedBox(
-      height: 180,
+      height: 100,
       child: ListView.builder(
         padding: const EdgeInsets.only(left: 20),
         scrollDirection: Axis.horizontal,
         itemCount: _opportunities.length,
         itemBuilder: (context, index) {
           final opp = _opportunities[index];
-          return Container(
-            width: 260,
-            margin: const EdgeInsets.only(right: 15),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  backgroundColor: _backgroundGray,
-                  radius: 18,
-                  child: Icon(opp.icon, color: _primaryTeal, size: 20),
-                ),
-                const SizedBox(height: 12),
-                Text(opp.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(opp.company, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-                const Spacer(),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: const Color(0xFFE0F7FA), borderRadius: BorderRadius.circular(10)),
-                      child: Text(opp.salaryOrBadge, style: const TextStyle(color: Color(0xFF00897B), fontWeight: FontWeight.bold, fontSize: 12)),
+          return GestureDetector(
+            onTap: () => _launchURL(opp.url),
+            child: Container(
+              width: 250,
+              margin: const EdgeInsets.only(right: 15),
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: Row(
+                children: [
+                  CircleAvatar(backgroundColor: _backgroundGray, child: Icon(opp.icon, color: _primaryTeal, size: 20)),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(opp.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(opp.company, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                      ],
                     ),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _primaryTeal,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text("Apply", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -636,52 +503,50 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     );
   }
 
+  // --- SCHOLARSHIPS SECTION ---
+
   Widget _buildScholarshipsList() {
+    final List<ScholarshipModel> _scholarships = [
+      ScholarshipModel(
+        title: "National Tech Scholarship", 
+        coverage: "Covers 50% Tuition", 
+        awardOrDeadline: "Closes in 5 Days", 
+        deadlineColor: Colors.red,
+        url: "https://scholarships.gov.in/",
+      ),
+      ScholarshipModel(
+        title: "Women in STEM Grant", 
+        coverage: "₹50,000 Award", 
+        awardOrDeadline: "₹50,000 Award", 
+        deadlineColor: Colors.orange,
+        url: "https://scholarships.gov.in/",
+      ),
+    ];
+
     return SizedBox(
-      height: 160,
+      height: 100,
       child: ListView.builder(
         padding: const EdgeInsets.only(left: 20),
         scrollDirection: Axis.horizontal,
         itemCount: _scholarships.length,
         itemBuilder: (context, index) {
           final sch = _scholarships[index];
-          return Container(
-            width: 240,
-            margin: const EdgeInsets.only(right: 15),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const CircleAvatar(
-                  backgroundColor: Color(0xFFFFF8E1),
-                  radius: 18,
-                  child: Icon(Icons.school_outlined, color: Color(0xFFF9C74F), size: 20),
-                ),
-                const SizedBox(height: 12),
-                Text(sch.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(8)),
-                      child: Text(sch.coverage, style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Row(
-                  children: [
-                    Icon(Icons.access_time, size: 12, color: sch.deadlineColor),
-                    const SizedBox(width: 4),
-                    Text(sch.awardOrDeadline, style: TextStyle(color: sch.deadlineColor, fontSize: 11, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-              ],
+          return GestureDetector(
+            onTap: () => _launchURL(sch.url),
+            child: Container(
+              width: 250,
+              margin: const EdgeInsets.only(right: 15),
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(sch.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 5),
+                  Text(sch.coverage, style: TextStyle(color: sch.deadlineColor, fontSize: 11, fontWeight: FontWeight.bold)),
+                ],
+              ),
             ),
           );
         },
@@ -689,43 +554,26 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildTipsList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: _tips.length,
-      itemBuilder: (context, index) {
-        final tip = _tips[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 15),
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+  Widget _buildAiCoachSection() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [_primaryTeal, _accentTeal]),
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.auto_awesome, color: Colors.white),
+          SizedBox(width: 15),
+          Expanded(
+            child: Text(
+              "Your AI Coach is analyzing your last 3 days of spending...",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+            ),
           ),
-          child: Row(
-            children: [
-              const CircleAvatar(
-                backgroundColor: Color(0xFFFFFDE7),
-                child: Icon(Icons.lightbulb_outline, color: Color(0xFFFBC02D)),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tip.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(height: 4),
-                    Text(tip.readTime, style: TextStyle(color: Colors.grey[400], fontSize: 11)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: Colors.grey),
-            ],
-          ),
-        );
-      },
+        ],
+      ),
     );
   }
 }

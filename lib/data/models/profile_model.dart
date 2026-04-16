@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart' hide Index;
+import 'package:cloud_firestore/cloud_firestore.dart' hide Index, Type;
 import 'package:isar/isar.dart';
 
 part 'profile_model.g.dart';

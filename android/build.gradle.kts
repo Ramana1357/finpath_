@@ -6,7 +6,7 @@ buildscript {
     }
     dependencies {
         // Aligned with settings.gradle.kts version
-        classpath("com.android.tools.build:gradle:8.7.0")
+        classpath("com.android.tools.build:gradle:8.9.1")
         classpath("com.chaquo.python:gradle:16.0.0")
     }
 }
