@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Added for EventChannel
 import 'dashboard_screen.dart';
 import 'vault_screen.dart';
 import 'insights_screen.dart';
@@ -10,6 +11,7 @@ import '../data/models/profile_model.dart';
 import '../models/transaction.dart';
 import '../services/cloud_service.dart';
 import '../services/local_cache_service.dart';
+import '../utils/sms_parser.dart'; // Added for parsing incoming SMS
 
 class MainHub extends StatefulWidget {
   const MainHub({super.key});
@@ -21,10 +23,12 @@ class MainHub extends StatefulWidget {
 class _MainHubState extends State<MainHub> {
   int _selectedIndex = 0;
   Stream<List<ExpenseTransaction>>? _localStream;
+  static const _smsChannel = EventChannel('com.finpath.messages');
 
   @override
   void initState() {
     super.initState();
+    _startSmsListener();
     // Use the cacheService from Provider
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final cacheService = context.read<LocalCacheService>();
@@ -67,6 +71,9 @@ class _MainHubState extends State<MainHub> {
 
     if (shouldRestore == true) {
       await authProvider.restoreData();
+    } else {
+      // Clear any existing local data on "Fresh Start"
+      await authProvider.clearLocalData();
     }
     
     authProvider.completeRestoreCheck();
@@ -85,6 +92,50 @@ class _MainHubState extends State<MainHub> {
       );
       await authProvider.saveProfile(updatedProfile);
     }
+  }
+
+  void _startSmsListener() {
+    _smsChannel.receiveBroadcastStream().listen((dynamic event) {
+      final authProvider = context.read<AuthProvider>();
+      final isEnabled = authProvider.profile?.smsTrackingEnabled ?? true;
+
+      if (!isEnabled) {
+        debugPrint("SMS tracking is disabled by user. Ignoring message.");
+        return;
+      }
+
+      // Handle Map data from Native (Sender + Body)
+      String message = "";
+      if (event is Map) {
+        message = event['message'] ?? "";
+      } else {
+        message = event.toString();
+      }
+
+      final parsed = SmsParser.parse(message);
+
+      if (parsed.amount > 0) {
+        _handleParsedTransaction(parsed, message);
+      }
+    });
+  }
+
+  Future<void> _handleParsedTransaction(ParsedSms parsed, String rawText) async {
+    final authProvider = context.read<AuthProvider>();
+    final cacheService = context.read<LocalCacheService>();
+    
+    // Create the transaction
+    final tx = ExpenseTransaction(
+      title: "Bank Auto-Track",
+      amount: parsed.amount,
+      category: parsed.isExpense ? "Other" : "Income",
+      isExpense: parsed.isExpense,
+      date: DateTime.now(),
+      smsRawText: rawText,
+    );
+
+    // Use AuthProvider to save transaction which triggers the centralized allocation logic
+    await authProvider.saveTransaction(tx);
   }
 
   @override

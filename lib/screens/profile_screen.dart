@@ -199,16 +199,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 20),
           _buildSettingsItem(
-            Icons.chat_bubble_outline, 
-            "SMS Listener", 
-            badge: _isSmsListenerActive ? "Active" : "Inactive",
-            onTap: () {
-              setState(() {
-                _isSmsListenerActive = !_isSmsListenerActive;
-              });
-            }
-          ),
-          _buildSettingsItem(
             Icons.tune_outlined, 
             "Budget Rules",
             onTap: () {
@@ -219,6 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           const SizedBox(height: 20),
+          _buildSmsToggle(context, profile),
           _buildBiometricToggle(context, profile),
           _buildSettingsItem(
             Icons.lock_outline, 
@@ -282,6 +273,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         date: DateTime.now().subtract(Duration(days: data['daysAgo'])),
       );
       await cacheService.saveTransaction(tx);
+      
+      // Allocate to Locked Savings if Income (+x)
+      if (!tx.isExpense && authProvider.profile != null) {
+        final profile = authProvider.profile!;
+        final double allocationAmount = (tx.amount * profile.emergencyPercent) / 100;
+        final updatedProfile = profile.copyWith(
+          totalLockedSavings: profile.totalLockedSavings + allocationAmount,
+          updatedAt: DateTime.now(),
+        );
+        await authProvider.saveProfile(updatedProfile);
+      }
+
       createdTxs.add(tx);
     }
 
@@ -371,6 +374,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }
 
                 final cacheService = context.read<LocalCacheService>();
+                final authProvider = context.read<AuthProvider>();
                 final tx = ExpenseTransaction(
                   title: title,
                   amount: amount,
@@ -380,6 +384,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
                 
                 await cacheService.saveTransaction(tx);
+                
+                // Allocate to Locked Savings if Income (+x)
+                if (!isExpense && authProvider.profile != null) {
+                  final profile = authProvider.profile!;
+                  final double allocationAmount = (amount * profile.emergencyPercent) / 100;
+                  final updatedProfile = profile.copyWith(
+                    totalLockedSavings: profile.totalLockedSavings + allocationAmount,
+                    updatedAt: DateTime.now(),
+                  );
+                  await authProvider.saveProfile(updatedProfile);
+                }
+
                 await CloudService().runAutoAnalysisFromLocal([tx]);
 
                 if (context.mounted) {
@@ -548,6 +564,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     }
+  }
+
+  Widget _buildSmsToggle(BuildContext context, ProfileModel? profile) {
+    final bool isEnabled = profile?.smsTrackingEnabled ?? true;
+    final authProvider = context.read<AuthProvider>();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ListTile(
+        leading: const Icon(Icons.chat_bubble_outline, color: _primaryTeal),
+        title: const Text("SMS Auto-Tracking", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        subtitle: Text(
+          isEnabled ? "Regex engine active" : "Tracking disabled",
+          style: TextStyle(fontSize: 12, color: isEnabled ? Colors.green : Colors.grey),
+        ),
+        trailing: Switch(
+          value: isEnabled,
+          activeColor: _primaryTeal,
+          onChanged: (bool value) async {
+            if (profile != null) {
+              final updatedProfile = profile.copyWith(
+                smsTrackingEnabled: value,
+                updatedAt: DateTime.now(),
+              );
+              await authProvider.saveProfile(updatedProfile);
+            }
+          },
+        ),
+      ),
+    );
   }
 
   Widget _buildBiometricToggle(BuildContext context, ProfileModel? profile) {
