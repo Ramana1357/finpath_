@@ -112,7 +112,8 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     _setLoading(true);
     try {
       await _userRepository.saveProfile(profile);
-      _profile = profile;
+      _profile = await _userRepository.getProfile(profile.uid, forceRefresh: true);
+      notifyListeners();
     } finally {
       _setLoading(false);
     }

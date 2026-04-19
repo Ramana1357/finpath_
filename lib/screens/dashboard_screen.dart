@@ -75,6 +75,9 @@ class DashboardScreen extends StatelessWidget {
           stream: transactionsStream,
           builder: (context, snapshot) {
             final transactions = snapshot.data ?? [];
+            final authProvider = context.watch<AuthProvider>();
+            final dailyLimit = authProvider.profile?.dailyLimit ?? 1000.0;
+            final monthlyLimit = authProvider.profile?.monthlyLimit ?? 30000.0;
             
             return RefreshIndicator(
               onRefresh: () async {
@@ -92,13 +95,15 @@ class DashboardScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 20),
+                          _buildInitialSetupInput(context),
+                          const SizedBox(height: 15),
                           _buildTopStatsRow(),
                           const SizedBox(height: 15),
                           _buildTotalBalanceCard(transactions),
                           const SizedBox(height: 15),
-                          _buildMonthlyOverviewCard(transactions),
+                          _buildMonthlyOverviewCard(transactions, monthlyLimit),
                           const SizedBox(height: 20),
-                          _buildTodaySpendingCard(transactions),
+                          _buildTodaySpendingCard(transactions, dailyLimit),
                           const SizedBox(height: 20),
                           _buildRecentExpensesSection(context, transactions),
                           const SizedBox(height: 30),
@@ -111,6 +116,117 @@ class DashboardScreen extends StatelessWidget {
             );
           }
         ),
+      ),
+    );
+  }
+
+  Widget _buildInitialSetupInput(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final profile = authProvider.profile;
+
+    // Only show if the profile exists AND they haven't saved their spending targets yet
+    if (profile == null || profile.hasSeenInitialSync) {
+      return const SizedBox.shrink();
+    }
+
+    final dailyController = TextEditingController(text: profile.dailyLimit.toStringAsFixed(0));
+    final monthlyController = TextEditingController(text: profile.monthlyLimit.toStringAsFixed(0));
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: primaryTeal.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(25),
+        border: Border.all(color: primaryTeal.withOpacity(0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_graph, color: primaryTeal, size: 20),
+              SizedBox(width: 10),
+              Text(
+                'Set Your Spending Targets',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: primaryTeal,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Daily Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 5),
+                    TextField(
+                      controller: dailyController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        prefixText: '₹ ',
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Monthly Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 5),
+                    TextField(
+                      controller: monthlyController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        prefixText: '₹ ',
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                final dLimit = double.tryParse(dailyController.text) ?? profile.dailyLimit;
+                final mLimit = double.tryParse(monthlyController.text) ?? profile.monthlyLimit;
+                
+                final updatedProfile = profile.copyWith(
+                  dailyLimit: dLimit,
+                  monthlyLimit: mLimit,
+                  hasSeenInitialSync: true,
+                );
+                
+                // This will save to BOTH Isar and Firestore via the repository
+                await authProvider.saveProfile(updatedProfile);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryTeal,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('Save Targets'),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -267,9 +383,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMonthlyOverviewCard(List<ExpenseTransaction> transactions) {
+  Widget _buildMonthlyOverviewCard(List<ExpenseTransaction> transactions, double monthlyLimit) {
     final double totalSpent = _calculateTotalSpentThisMonth(transactions);
-    final double monthlyLimit = 8000.0; 
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -341,9 +456,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTodaySpendingCard(List<ExpenseTransaction> transactions) {
+  Widget _buildTodaySpendingCard(List<ExpenseTransaction> transactions, double dailyLimit) {
     final double todaySpent = _calculateTotalSpentToday(transactions);
-    final double dailyLimit = 750.0;
 
     double percent = dailyLimit > 0 ? todaySpent / dailyLimit : 0.0;
     if (percent > 1.0) percent = 1.0;

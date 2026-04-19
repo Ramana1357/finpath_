@@ -31,6 +31,9 @@ class ProfileModel {
   
   final double totalLockedSavings;
   final bool smsTrackingEnabled;
+  final bool hasSeenInitialSync;
+  final double dailyLimit;
+  final double monthlyLimit;
 
   ProfileModel({
     required this.uid,
@@ -52,6 +55,9 @@ class ProfileModel {
     required this.updatedAt,
     this.totalLockedSavings = 0.0,
     this.smsTrackingEnabled = true,
+    this.hasSeenInitialSync = false,
+    this.dailyLimit = 1000.0,
+    this.monthlyLimit = 30000.0,
   });
 
   Map<String, dynamic> toMap() {
@@ -75,6 +81,9 @@ class ProfileModel {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'totalLockedSavings': totalLockedSavings,
       'smsTrackingEnabled': smsTrackingEnabled,
+      'hasSeenInitialSync': hasSeenInitialSync,
+      'dailyLimit': dailyLimit,
+      'monthlyLimit': monthlyLimit,
     };
   }
 
@@ -99,6 +108,9 @@ class ProfileModel {
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
       totalLockedSavings: (map['totalLockedSavings'] as num?)?.toDouble() ?? 0.0,
       smsTrackingEnabled: map['smsTrackingEnabled'] as bool? ?? true,
+      hasSeenInitialSync: map['hasSeenInitialSync'] as bool? ?? false,
+      dailyLimit: (map['dailyLimit'] as num?)?.toDouble() ?? 1000.0,
+      monthlyLimit: (map['monthlyLimit'] as num?)?.toDouble() ?? 30000.0,
     );
   }
 
@@ -123,6 +135,9 @@ class ProfileModel {
     DateTime? updatedAt,
     double? totalLockedSavings,
     bool? smsTrackingEnabled,
+    bool? hasSeenInitialSync,
+    double? dailyLimit,
+    double? monthlyLimit,
   }) {
     return ProfileModel(
       uid: uid ?? this.uid,
@@ -144,6 +159,9 @@ class ProfileModel {
       updatedAt: updatedAt ?? this.updatedAt,
       totalLockedSavings: totalLockedSavings ?? this.totalLockedSavings,
       smsTrackingEnabled: smsTrackingEnabled ?? this.smsTrackingEnabled,
+      hasSeenInitialSync: hasSeenInitialSync ?? this.hasSeenInitialSync,
+      dailyLimit: dailyLimit ?? this.dailyLimit,
+      monthlyLimit: monthlyLimit ?? this.monthlyLimit,
     )..id = id ?? this.id;
   }
 }

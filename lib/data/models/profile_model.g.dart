@@ -37,78 +37,93 @@ const ProfileModelSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'dreamVaultPercent': PropertySchema(
+    r'dailyLimit': PropertySchema(
       id: 4,
+      name: r'dailyLimit',
+      type: IsarType.double,
+    ),
+    r'dreamVaultPercent': PropertySchema(
+      id: 5,
       name: r'dreamVaultPercent',
       type: IsarType.long,
     ),
     r'email': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'email',
       type: IsarType.string,
     ),
     r'emergencyPercent': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'emergencyPercent',
       type: IsarType.long,
     ),
     r'financialDetails': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'financialDetails',
       type: IsarType.string,
     ),
     r'gender': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'gender',
       type: IsarType.string,
     ),
+    r'hasSeenInitialSync': PropertySchema(
+      id: 10,
+      name: r'hasSeenInitialSync',
+      type: IsarType.bool,
+    ),
     r'lastQuizDate': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'lastQuizDate',
       type: IsarType.string,
     ),
     r'lifetimePoints': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'lifetimePoints',
       type: IsarType.long,
     ),
+    r'monthlyLimit': PropertySchema(
+      id: 13,
+      name: r'monthlyLimit',
+      type: IsarType.double,
+    ),
     r'name': PropertySchema(
-      id: 11,
+      id: 14,
       name: r'name',
       type: IsarType.string,
     ),
     r'phoneNo': PropertySchema(
-      id: 12,
+      id: 15,
       name: r'phoneNo',
       type: IsarType.string,
     ),
     r'qualification': PropertySchema(
-      id: 13,
+      id: 16,
       name: r'qualification',
       type: IsarType.string,
     ),
     r'quizStatus': PropertySchema(
-      id: 14,
+      id: 17,
       name: r'quizStatus',
       type: IsarType.string,
     ),
     r'smsTrackingEnabled': PropertySchema(
-      id: 15,
+      id: 18,
       name: r'smsTrackingEnabled',
       type: IsarType.bool,
     ),
     r'totalLockedSavings': PropertySchema(
-      id: 16,
+      id: 19,
       name: r'totalLockedSavings',
       type: IsarType.double,
     ),
     r'uid': PropertySchema(
-      id: 17,
+      id: 20,
       name: r'uid',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 18,
+      id: 21,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -184,21 +199,24 @@ void _profileModelSerialize(
   writer.writeLong(offsets[1], object.allowancePercent);
   writer.writeBool(offsets[2], object.biometricEnabled);
   writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeLong(offsets[4], object.dreamVaultPercent);
-  writer.writeString(offsets[5], object.email);
-  writer.writeLong(offsets[6], object.emergencyPercent);
-  writer.writeString(offsets[7], object.financialDetails);
-  writer.writeString(offsets[8], object.gender);
-  writer.writeString(offsets[9], object.lastQuizDate);
-  writer.writeLong(offsets[10], object.lifetimePoints);
-  writer.writeString(offsets[11], object.name);
-  writer.writeString(offsets[12], object.phoneNo);
-  writer.writeString(offsets[13], object.qualification);
-  writer.writeString(offsets[14], object.quizStatus);
-  writer.writeBool(offsets[15], object.smsTrackingEnabled);
-  writer.writeDouble(offsets[16], object.totalLockedSavings);
-  writer.writeString(offsets[17], object.uid);
-  writer.writeDateTime(offsets[18], object.updatedAt);
+  writer.writeDouble(offsets[4], object.dailyLimit);
+  writer.writeLong(offsets[5], object.dreamVaultPercent);
+  writer.writeString(offsets[6], object.email);
+  writer.writeLong(offsets[7], object.emergencyPercent);
+  writer.writeString(offsets[8], object.financialDetails);
+  writer.writeString(offsets[9], object.gender);
+  writer.writeBool(offsets[10], object.hasSeenInitialSync);
+  writer.writeString(offsets[11], object.lastQuizDate);
+  writer.writeLong(offsets[12], object.lifetimePoints);
+  writer.writeDouble(offsets[13], object.monthlyLimit);
+  writer.writeString(offsets[14], object.name);
+  writer.writeString(offsets[15], object.phoneNo);
+  writer.writeString(offsets[16], object.qualification);
+  writer.writeString(offsets[17], object.quizStatus);
+  writer.writeBool(offsets[18], object.smsTrackingEnabled);
+  writer.writeDouble(offsets[19], object.totalLockedSavings);
+  writer.writeString(offsets[20], object.uid);
+  writer.writeDateTime(offsets[21], object.updatedAt);
 }
 
 ProfileModel _profileModelDeserialize(
@@ -212,21 +230,24 @@ ProfileModel _profileModelDeserialize(
     allowancePercent: reader.readLongOrNull(offsets[1]) ?? 50,
     biometricEnabled: reader.readBoolOrNull(offsets[2]) ?? false,
     createdAt: reader.readDateTime(offsets[3]),
-    dreamVaultPercent: reader.readLongOrNull(offsets[4]) ?? 30,
-    email: reader.readStringOrNull(offsets[5]),
-    emergencyPercent: reader.readLongOrNull(offsets[6]) ?? 20,
-    financialDetails: reader.readString(offsets[7]),
-    gender: reader.readString(offsets[8]),
-    lastQuizDate: reader.readStringOrNull(offsets[9]),
-    lifetimePoints: reader.readLongOrNull(offsets[10]) ?? 0,
-    name: reader.readString(offsets[11]),
-    phoneNo: reader.readStringOrNull(offsets[12]),
-    qualification: reader.readString(offsets[13]),
-    quizStatus: reader.readStringOrNull(offsets[14]) ?? "new",
-    smsTrackingEnabled: reader.readBoolOrNull(offsets[15]) ?? true,
-    totalLockedSavings: reader.readDoubleOrNull(offsets[16]) ?? 0.0,
-    uid: reader.readString(offsets[17]),
-    updatedAt: reader.readDateTime(offsets[18]),
+    dailyLimit: reader.readDoubleOrNull(offsets[4]) ?? 1000.0,
+    dreamVaultPercent: reader.readLongOrNull(offsets[5]) ?? 30,
+    email: reader.readStringOrNull(offsets[6]),
+    emergencyPercent: reader.readLongOrNull(offsets[7]) ?? 20,
+    financialDetails: reader.readString(offsets[8]),
+    gender: reader.readString(offsets[9]),
+    hasSeenInitialSync: reader.readBoolOrNull(offsets[10]) ?? false,
+    lastQuizDate: reader.readStringOrNull(offsets[11]),
+    lifetimePoints: reader.readLongOrNull(offsets[12]) ?? 0,
+    monthlyLimit: reader.readDoubleOrNull(offsets[13]) ?? 30000.0,
+    name: reader.readString(offsets[14]),
+    phoneNo: reader.readStringOrNull(offsets[15]),
+    qualification: reader.readString(offsets[16]),
+    quizStatus: reader.readStringOrNull(offsets[17]) ?? "new",
+    smsTrackingEnabled: reader.readBoolOrNull(offsets[18]) ?? true,
+    totalLockedSavings: reader.readDoubleOrNull(offsets[19]) ?? 0.0,
+    uid: reader.readString(offsets[20]),
+    updatedAt: reader.readDateTime(offsets[21]),
   );
   object.id = id;
   return object;
@@ -248,34 +269,40 @@ P _profileModelDeserializeProp<P>(
     case 3:
       return (reader.readDateTime(offset)) as P;
     case 4:
-      return (reader.readLongOrNull(offset) ?? 30) as P;
+      return (reader.readDoubleOrNull(offset) ?? 1000.0) as P;
     case 5:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset) ?? 30) as P;
     case 6:
-      return (reader.readLongOrNull(offset) ?? 20) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset) ?? 20) as P;
     case 8:
       return (reader.readString(offset)) as P;
     case 9:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readLongOrNull(offset) ?? 0) as P;
+      return (reader.readBoolOrNull(offset) ?? false) as P;
     case 11:
-      return (reader.readString(offset)) as P;
-    case 12:
       return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readLongOrNull(offset) ?? 0) as P;
     case 13:
-      return (reader.readString(offset)) as P;
+      return (reader.readDoubleOrNull(offset) ?? 30000.0) as P;
     case 14:
-      return (reader.readStringOrNull(offset) ?? "new") as P;
-    case 15:
-      return (reader.readBoolOrNull(offset) ?? true) as P;
-    case 16:
-      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
-    case 17:
       return (reader.readString(offset)) as P;
+    case 15:
+      return (reader.readStringOrNull(offset)) as P;
+    case 16:
+      return (reader.readString(offset)) as P;
+    case 17:
+      return (reader.readStringOrNull(offset) ?? "new") as P;
     case 18:
+      return (reader.readBoolOrNull(offset) ?? true) as P;
+    case 19:
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
+    case 20:
+      return (reader.readString(offset)) as P;
+    case 21:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -648,6 +675,72 @@ extension ProfileModelQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      dailyLimitEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'dailyLimit',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      dailyLimitGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'dailyLimit',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      dailyLimitLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'dailyLimit',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      dailyLimitBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'dailyLimit',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
       ));
     });
   }
@@ -1187,6 +1280,16 @@ extension ProfileModelQueryFilter
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      hasSeenInitialSyncEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'hasSeenInitialSync',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition> idEqualTo(
       Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -1446,6 +1549,72 @@ extension ProfileModelQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyLimitEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'monthlyLimit',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyLimitGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'monthlyLimit',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyLimitLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'monthlyLimit',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyLimitBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'monthlyLimit',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
       ));
     });
   }
@@ -2335,6 +2504,19 @@ extension ProfileModelQuerySortBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByDailyLimit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dailyLimit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByDailyLimitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dailyLimit', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
       sortByDreamVaultPercent() {
     return QueryBuilder.apply(this, (query) {
@@ -2401,6 +2583,20 @@ extension ProfileModelQuerySortBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByHasSeenInitialSync() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSeenInitialSync', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByHasSeenInitialSyncDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSeenInitialSync', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByLastQuizDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastQuizDate', Sort.asc);
@@ -2425,6 +2621,19 @@ extension ProfileModelQuerySortBy
       sortByLifetimePointsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lifetimePoints', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByMonthlyLimit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyLimit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByMonthlyLimitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyLimit', Sort.desc);
     });
   }
 
@@ -2585,6 +2794,19 @@ extension ProfileModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByDailyLimit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dailyLimit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByDailyLimitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'dailyLimit', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
       thenByDreamVaultPercent() {
     return QueryBuilder.apply(this, (query) {
@@ -2651,6 +2873,20 @@ extension ProfileModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByHasSeenInitialSync() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSeenInitialSync', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByHasSeenInitialSyncDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'hasSeenInitialSync', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -2687,6 +2923,19 @@ extension ProfileModelQuerySortThenBy
       thenByLifetimePointsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lifetimePoints', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByMonthlyLimit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyLimit', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByMonthlyLimitDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyLimit', Sort.desc);
     });
   }
 
@@ -2821,6 +3070,12 @@ extension ProfileModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByDailyLimit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'dailyLimit');
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QDistinct>
       distinctByDreamVaultPercent() {
     return QueryBuilder.apply(this, (query) {
@@ -2857,6 +3112,13 @@ extension ProfileModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctByHasSeenInitialSync() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'hasSeenInitialSync');
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByLastQuizDate(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2868,6 +3130,12 @@ extension ProfileModelQueryWhereDistinct
       distinctByLifetimePoints() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'lifetimePoints');
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByMonthlyLimit() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'monthlyLimit');
     });
   }
 
@@ -2961,6 +3229,12 @@ extension ProfileModelQueryProperty
     });
   }
 
+  QueryBuilder<ProfileModel, double, QQueryOperations> dailyLimitProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'dailyLimit');
+    });
+  }
+
   QueryBuilder<ProfileModel, int, QQueryOperations>
       dreamVaultPercentProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -2993,6 +3267,13 @@ extension ProfileModelQueryProperty
     });
   }
 
+  QueryBuilder<ProfileModel, bool, QQueryOperations>
+      hasSeenInitialSyncProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'hasSeenInitialSync');
+    });
+  }
+
   QueryBuilder<ProfileModel, String?, QQueryOperations> lastQuizDateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastQuizDate');
@@ -3002,6 +3283,12 @@ extension ProfileModelQueryProperty
   QueryBuilder<ProfileModel, int, QQueryOperations> lifetimePointsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lifetimePoints');
+    });
+  }
+
+  QueryBuilder<ProfileModel, double, QQueryOperations> monthlyLimitProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'monthlyLimit');
     });
   }
 

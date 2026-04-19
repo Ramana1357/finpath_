@@ -69,7 +69,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 30),
                 _buildGamificationCard(streak, profile),
                 const SizedBox(height: 30),
-                _buildSettingsList(name, bio, profile),
+                _buildGeneralSettingsList(name, bio, profile),
+                const SizedBox(height: 30),
+                _buildTestTools(context),
                 const SizedBox(height: 40),
                 _buildLogoutButton(authProvider),
                 const SizedBox(height: 40),
@@ -80,6 +82,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  Widget _buildGeneralSettingsList(String name, String bio, ProfileModel? profile) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 10, bottom: 10),
+            child: Text("Account Settings", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          _buildSettingsItem(
+            Icons.person_outline,
+            "Personal Information",
+            onTap: () => _showPersonalInformationBottomSheet(context),
+          ),
+          _buildSettingsItem(
+            Icons.speed_outlined,
+            "Expense Limits",
+            onTap: () => _showExpenseLimitsBottomSheet(context),
+          ),
+          _buildSettingsItem(
+            Icons.tune_outlined, 
+            "Budget Rules (50/30/20)",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BudgetRulesScreen()),
+              );
+            },
+          ),
+          _buildSettingsItem(
+            Icons.shield_outlined,
+            "My Dream Vaults",
+            onTap: () {
+              if (widget.onSwitchTab != null) {
+                widget.onSwitchTab!(1); // Switch to Vault tab
+                Navigator.pop(context); // Close Profile
+              }
+            },
+          ),
+          _buildSettingsItem(
+            Icons.file_download_outlined, 
+            "Export Data",
+            onTap: () => _exportTransactionData(context),
+          ),
+          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.only(left: 10, bottom: 10),
+            child: Text("Preferences & Security", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          _buildSmsToggle(context, profile),
+          _buildBiometricToggle(context, profile),
+          _buildSettingsItem(
+            Icons.lock_outline, 
+            "Change Password",
+            onTap: () => _showChangePasswordDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildHeader(String name, String bio) {
     return Column(
@@ -172,56 +237,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSettingsList(String name, String bio, ProfileModel? profile) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: [
-          _buildSettingsItem(
-            Icons.person_outline,
-            "Personal Information",
-            onTap: () => _showPersonalInformationBottomSheet(context),
-          ),
-          _buildSettingsItem(
-            Icons.shield_outlined,
-            "My Dream Vaults",
-            onTap: () {
-              if (widget.onSwitchTab != null) {
-                widget.onSwitchTab!(1); // Switch to Vault tab
-                Navigator.pop(context); // Close Profile
-              }
-            },
-          ),
-          _buildSettingsItem(
-            Icons.file_download_outlined, 
-            "Export Data",
-            onTap: () => _exportTransactionData(context),
-          ),
-          const SizedBox(height: 20),
-          _buildSettingsItem(
-            Icons.tune_outlined, 
-            "Budget Rules",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const BudgetRulesScreen()),
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-          _buildSmsToggle(context, profile),
-          _buildBiometricToggle(context, profile),
-          _buildSettingsItem(
-            Icons.lock_outline, 
-            "Change Password",
-            onTap: () => _showChangePasswordDialog(context),
-          ),
-          const SizedBox(height: 20),
-          _buildTestTools(context),
-        ],
-      ),
-    );
-  }
 
   Widget _buildTestTools(BuildContext context) {
     return Column(
@@ -1053,6 +1068,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: const Text("Update Password", style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showExpenseLimitsBottomSheet(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+    if (profile == null) return;
+
+    final dailyController = TextEditingController(text: profile.dailyLimit.toStringAsFixed(0));
+    final monthlyController = TextEditingController(text: profile.monthlyLimit.toStringAsFixed(0));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(30),
+              topRight: Radius.circular(30),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Expense Limits",
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _primaryTeal),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Adjust your daily and monthly spending targets. These changes will reflect in your dashboard immediately.",
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              ),
+              const SizedBox(height: 25),
+              _buildStyledTextField(dailyController, "Daily Limit (₹)", Icons.today_outlined, keyboardType: TextInputType.number),
+              _buildStyledTextField(monthlyController, "Monthly Limit (₹)", Icons.calendar_month_outlined, keyboardType: TextInputType.number),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final dLimit = double.tryParse(dailyController.text) ?? profile.dailyLimit;
+                    final mLimit = double.tryParse(monthlyController.text) ?? profile.monthlyLimit;
+                    
+                    final updatedProfile = profile.copyWith(
+                      dailyLimit: dLimit,
+                      monthlyLimit: mLimit,
+                      updatedAt: DateTime.now(),
+                    );
+                    
+                    await authProvider.saveProfile(updatedProfile);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Expense limits updated!"), backgroundColor: Colors.green),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primaryTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  child: const Text("Save Changes", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         ),
       ),
     );

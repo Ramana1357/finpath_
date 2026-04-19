@@ -1,10 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../data/models/profile_model.dart';
 import '../models/transaction.dart';
 import '../data/models/vault_model.dart';
 
-class LocalCacheService {
+class LocalCacheService extends ChangeNotifier {
   late Isar isar;
 
   Future<void> init() async {
@@ -19,6 +20,7 @@ class LocalCacheService {
     await isar.writeTxn(() async {
       await isar.profileModels.put(profile);
     });
+    notifyListeners();
   }
 
   Future<ProfileModel?> getProfile(String uid) async {
@@ -29,6 +31,7 @@ class LocalCacheService {
     await isar.writeTxn(() async {
       await isar.expenseTransactions.put(transaction);
     });
+    notifyListeners();
   }
 
   Future<List<ExpenseTransaction>> getAllTransactions() async {
@@ -83,6 +86,7 @@ class LocalCacheService {
     await isar.writeTxn(() async {
       await isar.vaultModels.put(vault);
     });
+    notifyListeners();
   }
 
   Future<List<VaultModel>> getAllVaults() async {
@@ -141,5 +145,6 @@ class LocalCacheService {
       // 5. Save updated profile
       await isar.profileModels.put(updatedProfile);
     });
+    notifyListeners();
   }
 }

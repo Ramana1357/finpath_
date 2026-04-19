@@ -16,6 +16,7 @@ import 'services/local_cache_service.dart';
 import 'utils/sms_parser.dart';
 import 'models/transaction.dart';
 import 'data/models/profile_model.dart';
+import 'data/models/vault_model.dart';
 
 // --- TOP-LEVEL BACKGROUND HANDLER (MANDATORY FOR TELEPHONY) ---
 @pragma('vm:entry-point')
@@ -30,7 +31,7 @@ void backgroundMessageHandler(SmsMessage message) async {
     Isar isar;
     if (Isar.getInstance() == null) {
       isar = await Isar.open(
-        [ProfileModelSchema, ExpenseTransactionSchema],
+        [ProfileModelSchema, ExpenseTransactionSchema, VaultModelSchema],
         directory: dir.path,
       );
     } else {
@@ -88,7 +89,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        Provider.value(value: cacheService),
+        ChangeNotifierProvider.value(value: cacheService),
         ChangeNotifierProvider(create: (_) => AuthProvider(userRepository)),
       ],
       child: const MyApp(),
