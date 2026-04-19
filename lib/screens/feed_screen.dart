@@ -379,9 +379,17 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
     final profile = authProvider.profile;
-    final String initials = profile?.name != null && profile!.name.isNotEmpty 
-        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : 'JD';
+
+    // SAFE ACCESS: Check if name exists before split/indexing
+    String initials = 'JD';
+    if (profile?.name != null && profile!.name.trim().isNotEmpty) {
+      try {
+        initials = profile.name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').where((s) => s.isNotEmpty).take(2).join().toUpperCase();
+        if (initials.isEmpty) initials = 'JD';
+      } catch (e) {
+        initials = 'JD';
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),

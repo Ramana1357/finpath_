@@ -77,8 +77,13 @@ class UserRepository {
     await _cacheService.saveProfile(profile);
   }
 
-  Future<void> saveTransaction(ExpenseTransaction transaction) async {
+  Future<void> saveTransaction(ExpenseTransaction transaction, {String? uid}) async {
     await _cacheService.saveTransaction(transaction);
+    
+    // Trigger atomic income allocation if it's income and we have a uid
+    if (!transaction.isExpense && uid != null) {
+      await _cacheService.performIncomeAllocation(uid, transaction.amount);
+    }
     
     // Trigger analysis immediately
     final transactions = await _cacheService.getTransactionsForLastSixMonths();
@@ -108,8 +113,10 @@ class UserRepository {
     final collection = _firestoreService.getTransactionsCollection();
 
     for (final tx in transactions) {
-      final docRef = collection.doc();
+      // Use txId as docId to prevent duplicates in Firestore
+      final docRef = collection.doc(tx.txId);
       batch.set(docRef, {
+        'txId': tx.txId,
         'userId': uid,
         'title': tx.title,
         'amount': tx.amount,
@@ -117,30 +124,96 @@ class UserRepository {
         'isExpense': tx.isExpense,
         'category': tx.category,
         'backedUpAt': DateTime.now(),
-      });
+      }, SetOptions(merge: true));
     }
     await batch.commit();
   }
 
   Future<void> restoreTransactions(String uid) async {
-    final now = DateTime.now();
-    final sixMonthsAgo = now.subtract(const Duration(days: 180));
-    
+    // 1. Fetch the latest remote profile to use its settings (emergencyPercent)
+    final remoteProfile = await _firestoreService.getProfile(uid);
+    if (remoteProfile == null) return;
+
+    // 2. CRITICAL: Clear all local transactions and reset local savings before rebuilding
+    await _cacheService.clearTransactions();
+    final localProfile = await _cacheService.getProfile(uid);
+    if (localProfile != null) {
+      await _cacheService.saveProfile(localProfile.copyWith(totalLockedSavings: 0.0));
+    }
+
     final snapshots = await _firestoreService.getTransactionsCollection()
         .where('userId', isEqualTo: uid)
-        .where('date', isGreaterThan: sixMonthsAgo)
         .get();
+
+    double correctedTotalSavings = 0.0;
+    
+    // SMART DE-DUPLICATION: 
+    // Uses a fingerprint of (Title + Amount + Date) to filter out duplicate records
+    // that exist in Firestore with different IDs but identical content.
+    final Set<String> contentHashes = {};
 
     for (final doc in snapshots.docs) {
       final data = doc.data() as Map<String, dynamic>;
+      
+      final String title = data['title'] ?? '';
+      final double amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+      final DateTime date = (data['date'] as Timestamp).toDate();
+      final bool isExpense = data['isExpense'] ?? true;
+      
+      // Create a unique fingerprint for this specific transaction
+      final String fingerprint = "${title}_${amount}_${date.millisecondsSinceEpoch}";
+
+      if (contentHashes.contains(fingerprint)) {
+        continue; // Ignore duplicate data from previous buggy syncs
+      }
+      contentHashes.add(fingerprint);
+
       final tx = ExpenseTransaction(
-        title: data['title'],
-        amount: data['amount'],
-        date: (data['date'] as Timestamp).toDate(),
-        isExpense: data['isExpense'],
+        txId: data['txId'] ?? doc.id,
+        title: title,
+        amount: amount,
+        date: date,
+        isExpense: isExpense,
         category: data['category'] ?? 'General',
       );
+
+      // Save to local Isar
       await _cacheService.saveTransaction(tx);
+
+      // 3. Recalculate savings based ONLY on these unique, verified transactions
+      if (!tx.isExpense) {
+        correctedTotalSavings += (tx.amount * remoteProfile.emergencyPercent) / 100;
+      }
+    }
+
+    // 4. Overwrite the profile's savings with the corrected, zero-based calculation
+    final currentLocal = await _cacheService.getProfile(uid);
+    final finalProfile = remoteProfile.copyWith(
+      id: currentLocal?.id, // Ensure we update the existing Isar record
+      totalLockedSavings: correctedTotalSavings,
+      updatedAt: DateTime.now(),
+    );
+
+    await saveProfile(finalProfile);
+
+    // 5. Trigger fresh analysis
+    final transactions = await _cacheService.getTransactionsForLastSixMonths();
+    await CloudService().runAutoAnalysisFromLocal(transactions);
+  }
+
+  Future<void> clearLocalData(String uid) async {
+    // 1. Wipe local Isar database completely
+    await _cacheService.clearCache();
+
+    // 2. Reset the source of truth (Firestore Profile) to zero savings
+    final remoteProfile = await _firestoreService.getProfile(uid);
+    if (remoteProfile != null) {
+      final resetProfile = remoteProfile.copyWith(
+        totalLockedSavings: 0.0,
+        updatedAt: DateTime.now(),
+      );
+      // This updates both Firestore and the now-empty Local Cache
+      await saveProfile(resetProfile);
     }
   }
 
@@ -149,7 +222,17 @@ class UserRepository {
       await backupTransactions(uid);
     }
     
-    // Clear state
+    // Explicitly reset savings to 0 on logout as requested
+    final remoteProfile = await _firestoreService.getProfile(uid);
+    if (remoteProfile != null) {
+      final updatedProfile = remoteProfile.copyWith(
+        totalLockedSavings: 0.0,
+        updatedAt: DateTime.now(),
+      );
+      await _firestoreService.saveProfile(updatedProfile);
+    }
+
+    // Clear local state
     await _cacheService.clearCache();
     await _authService.signOut();
   }

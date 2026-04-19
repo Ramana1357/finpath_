@@ -11,16 +11,34 @@ import 'dart:math';
 // --- LOCAL CALCULATOR HELPER ---
 class LocalHealthCalculator {
   static Map<String, dynamic> calculate(List<ExpenseTransaction> transactions) {
+    // FIXED: Strict guard clause for empty transactions
     if (transactions.isEmpty) {
-      print("DEBUG: No transactions found in Isar for Insights.");
-      return {'score': 0, 'savingsRate': 0.0, 'categories': <Map<String, dynamic>>[]};
+      return {
+        'score': 0, 
+        'savingsRate': 0.0, 
+        'categories': <Map<String, dynamic>>[],
+        'totalExpense': 0.0,
+        'totalIncome': 0.0,
+        'isEmpty': true, // Added flag for UI rendering
+      };
     }
 
-    // Filter for CURRENT MONTH only to match Dashboard
     final now = DateTime.now();
     final currentMonthTransactions = transactions.where((tx) => 
       tx.date.month == now.month && tx.date.year == now.year
     ).toList();
+
+    // FIXED: Secondary guard if current month has no data
+    if (currentMonthTransactions.isEmpty) {
+      return {
+        'score': 0, 
+        'savingsRate': 0.0, 
+        'categories': <Map<String, dynamic>>[],
+        'totalExpense': 0.0,
+        'totalIncome': 0.0,
+        'isEmpty': true,
+      };
+    }
 
     double totalIncome = 0;
     double totalExpense = 0;
@@ -35,23 +53,15 @@ class LocalHealthCalculator {
       }
     }
 
-    // Basic Health Score: (Savings / Income) * 100
     double score = 0;
     double savings = totalIncome - totalExpense;
     double savingsRate = 0;
 
-    print("DEBUG: Insights Calculation (Current Month: ${now.month}/${now.year})");
-    print("DEBUG: Count: ${currentMonthTransactions.length}, Total Income: $totalIncome, Total Expense: $totalExpense");
-
     if (totalIncome > 0) {
       savingsRate = (savings / totalIncome);
-      // Clamp between 0 and 1 for the score
       score = (savingsRate.clamp(0.0, 1.0) * 100);
-      print("DEBUG: Savings Rate: ${(savingsRate * 100).toStringAsFixed(1)}%, Score: $score");
     } else {
-      // If no income this month, score is based on spending volume vs a 'warning' threshold
       score = max(0, 50 - (totalExpense / 1000)).toDouble();
-      print("DEBUG: No income this month. Score: $score");
     }
 
     var sortedCats = categoryMap.entries.toList()
@@ -69,6 +79,7 @@ class LocalHealthCalculator {
       'categories': topCategories,
       'totalExpense': totalExpense,
       'totalIncome': totalIncome,
+      'isEmpty': false,
     };
   }
 }
@@ -114,6 +125,14 @@ class _InsightsScreenState extends State<InsightsScreen> {
                   final transactions = snapshot.data ?? [];
                   final localStats = LocalHealthCalculator.calculate(transactions);
 
+                  // FIXED: Strict guard clause at the top of UI builder
+                  if (localStats['isEmpty'] == true) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 50),
+                      child: _buildEmptyInsightsState(),
+                    );
+                  }
+
                   return Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -125,7 +144,6 @@ class _InsightsScreenState extends State<InsightsScreen> {
                         const SizedBox(height: 25),
                         _buildRealtimeCategories(localStats['categories'] as List),
                         const SizedBox(height: 25),
-                        // Keep AI Insights as a secondary cloud-powered section
                         StreamBuilder<CloudInsight?>(
                           stream: _cloudService.getInsightsStream(),
                           builder: (context, cloudSnapshot) {
@@ -156,12 +174,42 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
+  Widget _buildEmptyInsightsState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.analytics_outlined, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 20),
+          const Text(
+            "Start logging transactions to see your financial insights.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _primaryTeal),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            "Your spending behavior will appear here.",
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
     final profile = authProvider.profile;
-    final String initials = profile?.name != null && profile!.name.isNotEmpty 
-        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : 'JD';
+    
+    // SAFE ACCESS
+    String initials = 'JD';
+    if (profile?.name != null && profile!.name.trim().isNotEmpty) {
+      try {
+        initials = profile.name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').where((s) => s.isNotEmpty).take(2).join().toUpperCase();
+        if (initials.isEmpty) initials = 'JD';
+      } catch (e) {
+        initials = 'JD';
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -246,23 +294,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
-  Widget _buildNoDataState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.analytics_outlined, size: 80, color: Colors.grey[300]),
-          const SizedBox(height: 20),
-          const Text("Analysis Pending", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryTeal)),
-          const SizedBox(height: 10),
-          const Text("Our Python engine is calculating your insights.", style: TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildHealthScoreCard(Map<String, dynamic> stats) {
-    final int score = stats['score'];
+    final int score = stats['score'] ?? 0;
     final double savingsRate = stats['savingsRate'] ?? 0.0;
     Color scoreColor = score > 70 ? Colors.green : (score > 40 ? Colors.orange : Colors.red);
 
@@ -328,29 +361,30 @@ class _InsightsScreenState extends State<InsightsScreen> {
           const Text("Top Spending Areas", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTeal)),
           const SizedBox(height: 20),
           if (categories.isEmpty) 
-            const Text("No expenses recorded yet.", style: TextStyle(color: Colors.grey)),
-          ...categories.map((cat) => Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(cat['category'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text("₹${(cat['amount'] as double).toInt()} (${cat['percentage']}%)", style: const TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: cat['percentage'] / 100,
-                  backgroundColor: _backgroundGray,
-                  color: _accentTeal,
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ],
-            ),
-          )),
+            const Text("No expenses recorded yet.", style: TextStyle(color: Colors.grey))
+          else
+            ...categories.map((cat) => Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(cat['category'] ?? "Other", style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text("₹${(cat['amount'] as double).toInt()} (${cat['percentage']}%)", style: const TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: (cat['percentage'] as int) / 100,
+                    backgroundColor: _backgroundGray,
+                    color: _accentTeal,
+                    minHeight: 6,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ],
+              ),
+            )),
         ],
       ),
     );

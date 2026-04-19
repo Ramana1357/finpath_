@@ -47,6 +47,11 @@ const ExpenseTransactionSchema = CollectionSchema(
       id: 5,
       name: r'title',
       type: IsarType.string,
+    ),
+    r'txId': PropertySchema(
+      id: 6,
+      name: r'txId',
+      type: IsarType.string,
     )
   },
   estimateSize: _expenseTransactionEstimateSize,
@@ -54,7 +59,21 @@ const ExpenseTransactionSchema = CollectionSchema(
   deserialize: _expenseTransactionDeserialize,
   deserializeProp: _expenseTransactionDeserializeProp,
   idName: r'id',
-  indexes: {},
+  indexes: {
+    r'txId': IndexSchema(
+      id: 1771378982912115290,
+      name: r'txId',
+      unique: true,
+      replace: true,
+      properties: [
+        IndexPropertySchema(
+          name: r'txId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    )
+  },
   links: {},
   embeddedSchemas: {},
   getId: _expenseTransactionGetId,
@@ -77,6 +96,12 @@ int _expenseTransactionEstimateSize(
     }
   }
   bytesCount += 3 + object.title.length * 3;
+  {
+    final value = object.txId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -92,6 +117,7 @@ void _expenseTransactionSerialize(
   writer.writeBool(offsets[3], object.isExpense);
   writer.writeString(offsets[4], object.smsRawText);
   writer.writeString(offsets[5], object.title);
+  writer.writeString(offsets[6], object.txId);
 }
 
 ExpenseTransaction _expenseTransactionDeserialize(
@@ -107,6 +133,7 @@ ExpenseTransaction _expenseTransactionDeserialize(
     isExpense: reader.readBoolOrNull(offsets[3]) ?? true,
     smsRawText: reader.readStringOrNull(offsets[4]),
     title: reader.readStringOrNull(offsets[5]) ?? '',
+    txId: reader.readStringOrNull(offsets[6]),
   );
   object.id = id;
   return object;
@@ -131,6 +158,8 @@ P _expenseTransactionDeserializeProp<P>(
       return (reader.readStringOrNull(offset)) as P;
     case 5:
       return (reader.readStringOrNull(offset) ?? '') as P;
+    case 6:
+      return (reader.readStringOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -148,6 +177,61 @@ List<IsarLinkBase<dynamic>> _expenseTransactionGetLinks(
 void _expenseTransactionAttach(
     IsarCollection<dynamic> col, Id id, ExpenseTransaction object) {
   object.id = id;
+}
+
+extension ExpenseTransactionByIndex on IsarCollection<ExpenseTransaction> {
+  Future<ExpenseTransaction?> getByTxId(String? txId) {
+    return getByIndex(r'txId', [txId]);
+  }
+
+  ExpenseTransaction? getByTxIdSync(String? txId) {
+    return getByIndexSync(r'txId', [txId]);
+  }
+
+  Future<bool> deleteByTxId(String? txId) {
+    return deleteByIndex(r'txId', [txId]);
+  }
+
+  bool deleteByTxIdSync(String? txId) {
+    return deleteByIndexSync(r'txId', [txId]);
+  }
+
+  Future<List<ExpenseTransaction?>> getAllByTxId(List<String?> txIdValues) {
+    final values = txIdValues.map((e) => [e]).toList();
+    return getAllByIndex(r'txId', values);
+  }
+
+  List<ExpenseTransaction?> getAllByTxIdSync(List<String?> txIdValues) {
+    final values = txIdValues.map((e) => [e]).toList();
+    return getAllByIndexSync(r'txId', values);
+  }
+
+  Future<int> deleteAllByTxId(List<String?> txIdValues) {
+    final values = txIdValues.map((e) => [e]).toList();
+    return deleteAllByIndex(r'txId', values);
+  }
+
+  int deleteAllByTxIdSync(List<String?> txIdValues) {
+    final values = txIdValues.map((e) => [e]).toList();
+    return deleteAllByIndexSync(r'txId', values);
+  }
+
+  Future<Id> putByTxId(ExpenseTransaction object) {
+    return putByIndex(r'txId', object);
+  }
+
+  Id putByTxIdSync(ExpenseTransaction object, {bool saveLinks = true}) {
+    return putByIndexSync(r'txId', object, saveLinks: saveLinks);
+  }
+
+  Future<List<Id>> putAllByTxId(List<ExpenseTransaction> objects) {
+    return putAllByIndex(r'txId', objects);
+  }
+
+  List<Id> putAllByTxIdSync(List<ExpenseTransaction> objects,
+      {bool saveLinks = true}) {
+    return putAllByIndexSync(r'txId', objects, saveLinks: saveLinks);
+  }
 }
 
 extension ExpenseTransactionQueryWhereSort
@@ -226,6 +310,73 @@ extension ExpenseTransactionQueryWhere
         upper: upperId,
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterWhereClause>
+      txIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'txId',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterWhereClause>
+      txIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'txId',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterWhereClause>
+      txIdEqualTo(String? txId) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'txId',
+        value: [txId],
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterWhereClause>
+      txIdNotEqualTo(String? txId) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'txId',
+              lower: [],
+              upper: [txId],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'txId',
+              lower: [txId],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'txId',
+              lower: [txId],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'txId',
+              lower: [],
+              upper: [txId],
+              includeUpper: false,
+            ));
+      }
     });
   }
 }
@@ -845,6 +996,160 @@ extension ExpenseTransactionQueryFilter
       ));
     });
   }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'txId',
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'txId',
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'txId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'txId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'txId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'txId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'txId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'txId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'txId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'txId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'txId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterFilterCondition>
+      txIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'txId',
+        value: '',
+      ));
+    });
+  }
 }
 
 extension ExpenseTransactionQueryObject
@@ -936,6 +1241,20 @@ extension ExpenseTransactionQuerySortBy
       sortByTitleDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      sortByTxId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'txId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      sortByTxIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'txId', Sort.desc);
     });
   }
 }
@@ -1039,6 +1358,20 @@ extension ExpenseTransactionQuerySortThenBy
       return query.addSortBy(r'title', Sort.desc);
     });
   }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      thenByTxId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'txId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QAfterSortBy>
+      thenByTxIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'txId', Sort.desc);
+    });
+  }
 }
 
 extension ExpenseTransactionQueryWhereDistinct
@@ -1082,6 +1415,13 @@ extension ExpenseTransactionQueryWhereDistinct
       distinctByTitle({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'title', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, ExpenseTransaction, QDistinct>
+      distinctByTxId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'txId', caseSensitive: caseSensitive);
     });
   }
 }
@@ -1129,6 +1469,12 @@ extension ExpenseTransactionQueryProperty
   QueryBuilder<ExpenseTransaction, String, QQueryOperations> titleProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'title');
+    });
+  }
+
+  QueryBuilder<ExpenseTransaction, String?, QQueryOperations> txIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'txId');
     });
   }
 }

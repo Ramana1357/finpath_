@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart' hide Index, Type;
+import 'package:cloud_firestore/cloud_firestore.dart' hide Index, Type, Query;
 import 'package:isar/isar.dart';
 
 part 'profile_model.g.dart';
@@ -21,10 +21,16 @@ class ProfileModel {
   final int emergencyPercent;
   final bool biometricEnabled;
   final int lifetimePoints;
-  final DateTime? lastQuizDate;
+  
+  // formatted as 'YYYY-MM-DD'
+  final String? lastQuizDate; 
+  
   final String quizStatus; // "new", "completed", "pending"
   final DateTime createdAt;
   final DateTime updatedAt;
+  
+  final double totalLockedSavings;
+  final bool smsTrackingEnabled;
 
   ProfileModel({
     required this.uid,
@@ -44,6 +50,8 @@ class ProfileModel {
     this.quizStatus = "new",
     required this.createdAt,
     required this.updatedAt,
+    this.totalLockedSavings = 0.0,
+    this.smsTrackingEnabled = true,
   });
 
   Map<String, dynamic> toMap() {
@@ -61,10 +69,12 @@ class ProfileModel {
       'emergencyPercent': emergencyPercent,
       'biometricEnabled': biometricEnabled,
       'lifetimePoints': lifetimePoints,
-      'lastQuizDate': lastQuizDate != null ? Timestamp.fromDate(lastQuizDate!) : null,
+      'lastQuizDate': lastQuizDate,
       'quizStatus': quizStatus,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+      'totalLockedSavings': totalLockedSavings,
+      'smsTrackingEnabled': smsTrackingEnabled,
     };
   }
 
@@ -83,14 +93,17 @@ class ProfileModel {
       emergencyPercent: map['emergencyPercent'] as int? ?? 20,
       biometricEnabled: map['biometricEnabled'] as bool? ?? false,
       lifetimePoints: map['lifetimePoints'] as int? ?? 0,
-      lastQuizDate: map['lastQuizDate'] != null ? (map['lastQuizDate'] as Timestamp).toDate() : null,
+      lastQuizDate: map['lastQuizDate'] as String?,
       quizStatus: map['quizStatus'] as String? ?? "new",
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+      totalLockedSavings: (map['totalLockedSavings'] as num?)?.toDouble() ?? 0.0,
+      smsTrackingEnabled: map['smsTrackingEnabled'] as bool? ?? true,
     );
   }
 
   ProfileModel copyWith({
+    Id? id,
     String? uid,
     String? name,
     int? age,
@@ -104,10 +117,12 @@ class ProfileModel {
     int? emergencyPercent,
     bool? biometricEnabled,
     int? lifetimePoints,
-    DateTime? lastQuizDate,
+    String? lastQuizDate,
     String? quizStatus,
     DateTime? createdAt,
     DateTime? updatedAt,
+    double? totalLockedSavings,
+    bool? smsTrackingEnabled,
   }) {
     return ProfileModel(
       uid: uid ?? this.uid,
@@ -127,6 +142,8 @@ class ProfileModel {
       quizStatus: quizStatus ?? this.quizStatus,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-    );
+      totalLockedSavings: totalLockedSavings ?? this.totalLockedSavings,
+      smsTrackingEnabled: smsTrackingEnabled ?? this.smsTrackingEnabled,
+    )..id = id ?? this.id;
   }
 }

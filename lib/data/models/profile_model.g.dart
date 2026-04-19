@@ -65,7 +65,7 @@ const ProfileModelSchema = CollectionSchema(
     r'lastQuizDate': PropertySchema(
       id: 9,
       name: r'lastQuizDate',
-      type: IsarType.dateTime,
+      type: IsarType.string,
     ),
     r'lifetimePoints': PropertySchema(
       id: 10,
@@ -92,13 +92,23 @@ const ProfileModelSchema = CollectionSchema(
       name: r'quizStatus',
       type: IsarType.string,
     ),
-    r'uid': PropertySchema(
+    r'smsTrackingEnabled': PropertySchema(
       id: 15,
+      name: r'smsTrackingEnabled',
+      type: IsarType.bool,
+    ),
+    r'totalLockedSavings': PropertySchema(
+      id: 16,
+      name: r'totalLockedSavings',
+      type: IsarType.double,
+    ),
+    r'uid': PropertySchema(
+      id: 17,
       name: r'uid',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -145,6 +155,12 @@ int _profileModelEstimateSize(
   }
   bytesCount += 3 + object.financialDetails.length * 3;
   bytesCount += 3 + object.gender.length * 3;
+  {
+    final value = object.lastQuizDate;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.name.length * 3;
   {
     final value = object.phoneNo;
@@ -173,14 +189,16 @@ void _profileModelSerialize(
   writer.writeLong(offsets[6], object.emergencyPercent);
   writer.writeString(offsets[7], object.financialDetails);
   writer.writeString(offsets[8], object.gender);
-  writer.writeDateTime(offsets[9], object.lastQuizDate);
+  writer.writeString(offsets[9], object.lastQuizDate);
   writer.writeLong(offsets[10], object.lifetimePoints);
   writer.writeString(offsets[11], object.name);
   writer.writeString(offsets[12], object.phoneNo);
   writer.writeString(offsets[13], object.qualification);
   writer.writeString(offsets[14], object.quizStatus);
-  writer.writeString(offsets[15], object.uid);
-  writer.writeDateTime(offsets[16], object.updatedAt);
+  writer.writeBool(offsets[15], object.smsTrackingEnabled);
+  writer.writeDouble(offsets[16], object.totalLockedSavings);
+  writer.writeString(offsets[17], object.uid);
+  writer.writeDateTime(offsets[18], object.updatedAt);
 }
 
 ProfileModel _profileModelDeserialize(
@@ -199,14 +217,16 @@ ProfileModel _profileModelDeserialize(
     emergencyPercent: reader.readLongOrNull(offsets[6]) ?? 20,
     financialDetails: reader.readString(offsets[7]),
     gender: reader.readString(offsets[8]),
-    lastQuizDate: reader.readDateTimeOrNull(offsets[9]),
+    lastQuizDate: reader.readStringOrNull(offsets[9]),
     lifetimePoints: reader.readLongOrNull(offsets[10]) ?? 0,
     name: reader.readString(offsets[11]),
     phoneNo: reader.readStringOrNull(offsets[12]),
     qualification: reader.readString(offsets[13]),
     quizStatus: reader.readStringOrNull(offsets[14]) ?? "new",
-    uid: reader.readString(offsets[15]),
-    updatedAt: reader.readDateTime(offsets[16]),
+    smsTrackingEnabled: reader.readBoolOrNull(offsets[15]) ?? true,
+    totalLockedSavings: reader.readDoubleOrNull(offsets[16]) ?? 0.0,
+    uid: reader.readString(offsets[17]),
+    updatedAt: reader.readDateTime(offsets[18]),
   );
   object.id = id;
   return object;
@@ -238,7 +258,7 @@ P _profileModelDeserializeProp<P>(
     case 8:
       return (reader.readString(offset)) as P;
     case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
       return (reader.readLongOrNull(offset) ?? 0) as P;
     case 11:
@@ -250,8 +270,12 @@ P _profileModelDeserializeProp<P>(
     case 14:
       return (reader.readStringOrNull(offset) ?? "new") as P;
     case 15:
-      return (reader.readString(offset)) as P;
+      return (reader.readBoolOrNull(offset) ?? true) as P;
     case 16:
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
+    case 17:
+      return (reader.readString(offset)) as P;
+    case 18:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1235,49 +1259,58 @@ extension ProfileModelQueryFilter
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
-      lastQuizDateEqualTo(DateTime? value) {
+      lastQuizDateEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'lastQuizDate',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
       lastQuizDateGreaterThan(
-    DateTime? value, {
+    String? value, {
     bool include = false,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
         property: r'lastQuizDate',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
       lastQuizDateLessThan(
-    DateTime? value, {
+    String? value, {
     bool include = false,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
         property: r'lastQuizDate',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
       lastQuizDateBetween(
-    DateTime? lower,
-    DateTime? upper, {
+    String? lower,
+    String? upper, {
     bool includeLower = true,
     bool includeUpper = true,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
@@ -1286,6 +1319,77 @@ extension ProfileModelQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      lastQuizDateStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastQuizDate',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      lastQuizDateEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastQuizDate',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      lastQuizDateContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastQuizDate',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      lastQuizDateMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastQuizDate',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      lastQuizDateIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastQuizDate',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      lastQuizDateIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastQuizDate',
+        value: '',
       ));
     });
   }
@@ -1906,6 +2010,82 @@ extension ProfileModelQueryFilter
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      smsTrackingEnabledEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'smsTrackingEnabled',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalLockedSavingsEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'totalLockedSavings',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalLockedSavingsGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'totalLockedSavings',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalLockedSavingsLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'totalLockedSavings',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalLockedSavingsBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'totalLockedSavings',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition> uidEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2298,6 +2478,34 @@ extension ProfileModelQuerySortBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortBySmsTrackingEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'smsTrackingEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortBySmsTrackingEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'smsTrackingEnabled', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByTotalLockedSavings() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalLockedSavings', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByTotalLockedSavingsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalLockedSavings', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'uid', Sort.asc);
@@ -2532,6 +2740,34 @@ extension ProfileModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenBySmsTrackingEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'smsTrackingEnabled', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenBySmsTrackingEnabledDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'smsTrackingEnabled', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByTotalLockedSavings() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalLockedSavings', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByTotalLockedSavingsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalLockedSavings', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'uid', Sort.asc);
@@ -2621,9 +2857,10 @@ extension ProfileModelQueryWhereDistinct
     });
   }
 
-  QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByLastQuizDate() {
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByLastQuizDate(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'lastQuizDate');
+      return query.addDistinctBy(r'lastQuizDate', caseSensitive: caseSensitive);
     });
   }
 
@@ -2660,6 +2897,20 @@ extension ProfileModelQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'quizStatus', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctBySmsTrackingEnabled() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'smsTrackingEnabled');
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctByTotalLockedSavings() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'totalLockedSavings');
     });
   }
 
@@ -2742,8 +2993,7 @@ extension ProfileModelQueryProperty
     });
   }
 
-  QueryBuilder<ProfileModel, DateTime?, QQueryOperations>
-      lastQuizDateProperty() {
+  QueryBuilder<ProfileModel, String?, QQueryOperations> lastQuizDateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastQuizDate');
     });
@@ -2776,6 +3026,20 @@ extension ProfileModelQueryProperty
   QueryBuilder<ProfileModel, String, QQueryOperations> quizStatusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'quizStatus');
+    });
+  }
+
+  QueryBuilder<ProfileModel, bool, QQueryOperations>
+      smsTrackingEnabledProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'smsTrackingEnabled');
+    });
+  }
+
+  QueryBuilder<ProfileModel, double, QQueryOperations>
+      totalLockedSavingsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'totalLockedSavings');
     });
   }
 

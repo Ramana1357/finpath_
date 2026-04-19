@@ -4,6 +4,9 @@ import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
 
 // --- DATA MODEL (Ready for Backend Integration) ---
+import '../data/models/vault_model.dart';
+import '../services/local_cache_service.dart';
+
 class DreamVaultModel {
   final String title;
   final IconData icon;
@@ -28,27 +31,8 @@ class VaultScreen extends StatefulWidget {
 }
 
 class _VaultScreenState extends State<VaultScreen> {
-  // --- STATE VARIABLES (Swap these with Database Streams tomorrow) ---
-  final double _totalLockedSavings = 18500.00;
-  final int _userLevel = 5;
-  final String _userLevelName = "FinMaster";
-  final double _levelProgress = 0.8; // 80%
+  // --- STATE VARIABLES ---
   bool _isCrisisModeActive = false;
-
-  final List<DreamVaultModel> _vaults = [
-    DreamVaultModel(
-      title: "Buy Bike",
-      icon: Icons.directions_bike,
-      currentAmount: 45000,
-      targetAmount: 90000,
-    ),
-    DreamVaultModel(
-      title: "Goa Trip",
-      icon: Icons.flight_takeoff,
-      currentAmount: 10000,
-      targetAmount: 50000,
-    ),
-  ];
 
   // --- UI COLORS ---
   static const Color _primaryTeal = Color(0xFF006D77);
@@ -58,45 +42,63 @@ class _VaultScreenState extends State<VaultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final profile = authProvider.profile;
+    
+    final double totalLockedSavings = profile?.totalLockedSavings ?? 0.0;
+    final int emergencyPercent = profile?.emergencyPercent ?? 20;
+    final int userLevel = (profile?.lifetimePoints ?? 0) ~/ 500 + 1;
+    final String userLevelName = userLevel > 5 ? "FinMaster" : "Novice Saver";
+    final double levelProgress = ((profile?.lifetimePoints ?? 0) % 500) / 500;
+    
+    final cacheService = context.read<LocalCacheService>();
+
     return Scaffold(
       backgroundColor: _backgroundGray,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildAppBar(context),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTotalSavingsCard(),
-                    const SizedBox(height: 20),
-                    _buildGamificationCard(),
-                    const SizedBox(height: 25),
-                    const Text(
-                      "My Dream Vaults",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: _primaryTeal,
-                      ),
+        child: StreamBuilder<List<VaultModel>>(
+          stream: cacheService.watchVaults(),
+          builder: (context, snapshot) {
+            final vaults = snapshot.data ?? [];
+
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAppBar(context),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTotalSavingsCard(totalLockedSavings, emergencyPercent),
+                        const SizedBox(height: 20),
+                        _buildGamificationCard(userLevel, userLevelName, levelProgress),
+                        const SizedBox(height: 25),
+                        const Text(
+                          "My Dream Vaults",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: _primaryTeal,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+                        _buildVaultList(vaults),
+                        const SizedBox(height: 20),
+                        _buildCrisisModeCard(),
+                        const SizedBox(height: 80),
+                      ],
                     ),
-                    const SizedBox(height: 15),
-                    _buildVaultList(),
-                    const SizedBox(height: 20),
-                    _buildCrisisModeCard(),
-                    const SizedBox(height: 80),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          }
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () => _showAddVaultDialog(context),
         backgroundColor: _primaryTeal,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -105,12 +107,91 @@ class _VaultScreenState extends State<VaultScreen> {
 
   // --- WIDGET COMPONENTS ---
 
+  void _showAddVaultDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final targetController = TextEditingController();
+    final allocationController = TextEditingController(text: "0");
+    final cacheService = context.read<LocalCacheService>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Create New Vault"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min, 
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: "Goal Title (e.g. New Bike)",
+                  hintText: "What are you saving for?",
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: targetController,
+                decoration: const InputDecoration(
+                  labelText: "Target Amount (₹)",
+                  hintText: "How much do you need?",
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: allocationController,
+                decoration: const InputDecoration(
+                  labelText: "Allocation Share (%)",
+                  hintText: "e.g. 50 for 50% of dream pot",
+                  helperText: "Percentage of your 30% savings pot",
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.isNotEmpty && targetController.text.isNotEmpty) {
+                final vault = VaultModel(
+                  title: titleController.text,
+                  targetAmount: double.parse(targetController.text),
+                  allocationPercent: double.tryParse(allocationController.text) ?? 0.0,
+                  iconName: "stars", // Default icon
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                );
+                await cacheService.saveVault(vault);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
+            child: const Text("Create Vault", style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
+  }
+
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
     final profile = authProvider.profile;
-    final String initials = profile?.name != null && profile!.name.isNotEmpty 
-        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : 'JD';
+    
+    // SAFE ACCESS: Check if name exists before split/indexing
+    String initials = 'JD';
+    if (profile?.name != null && profile!.name.trim().isNotEmpty) {
+      try {
+        initials = profile.name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').where((s) => s.isNotEmpty).take(2).join().toUpperCase();
+        if (initials.isEmpty) initials = 'JD';
+      } catch (e) {
+        initials = 'JD';
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -160,7 +241,7 @@ class _VaultScreenState extends State<VaultScreen> {
     );
   }
 
-  Widget _buildTotalSavingsCard() {
+  Widget _buildTotalSavingsCard(double amount, int percent) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
@@ -171,13 +252,13 @@ class _VaultScreenState extends State<VaultScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Total Locked Savings",
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+          Text(
+            "Total Locked Savings ($percent%)",
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 10),
           Text(
-            "₹${_totalLockedSavings.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}",
+            "₹${amount.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}",
             style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
@@ -189,7 +270,7 @@ class _VaultScreenState extends State<VaultScreen> {
     );
   }
 
-  Widget _buildGamificationCard() {
+  Widget _buildGamificationCard(int level, String name, double progress) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -214,27 +295,33 @@ class _VaultScreenState extends State<VaultScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.emoji_events_outlined,
-                          color: _accentYellow),
-                      const SizedBox(width: 10),
-                      Text(
-                        "Level $_userLevel: $_userLevelName",
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                    ],
+                  Expanded( 
+                    child: Row(
+                      children: [
+                        const Icon(Icons.emoji_events_outlined,
+                            color: _accentYellow),
+                        const SizedBox(width: 10),
+                        Flexible( 
+                          child: Text(
+                            "Level $level: $name",
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 10),
                   Text(
-                    "${(_levelProgress * 100).toInt()}% to Level ${_userLevel + 1}",
+                    "${(progress * 100).toInt()}% to Level ${level + 1}",
                     style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
                   ),
                 ],
               ),
               const SizedBox(height: 15),
               LinearProgressIndicator(
-                value: _levelProgress,
+                value: progress,
                 backgroundColor: _backgroundGray,
                 color: _accentYellow,
                 minHeight: 10,
@@ -247,13 +334,41 @@ class _VaultScreenState extends State<VaultScreen> {
     );
   }
 
-  Widget _buildVaultList() {
+  Widget _buildVaultList(List<VaultModel> vaults) {
+    if (vaults.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: Colors.white),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_open_outlined, size: 40, color: _primaryTeal.withOpacity(0.5)),
+            const SizedBox(height: 15),
+            const Text(
+              "No vaults created yet.",
+              style: TextStyle(fontWeight: FontWeight.bold, color: _primaryTeal),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              "Tap '+' to start your first saving goal!",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _vaults.length,
+      itemCount: vaults.length,
       itemBuilder: (context, index) {
-        final vault = _vaults[index];
+        final vault = vaults[index];
         return Container(
           margin: const EdgeInsets.only(bottom: 15),
           padding: const EdgeInsets.all(20),
@@ -265,9 +380,9 @@ class _VaultScreenState extends State<VaultScreen> {
             children: [
               Row(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     backgroundColor: _backgroundGray,
-                    child: Icon(vault.icon, color: _primaryTeal, size: 20),
+                    child: Icon(Icons.stars, color: _primaryTeal, size: 20),
                   ),
                   const SizedBox(width: 15),
                   Expanded(
@@ -280,7 +395,7 @@ class _VaultScreenState extends State<VaultScreen> {
                               fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         Text(
-                          "₹${vault.currentAmount.toInt()} / ₹${vault.targetAmount.toInt()}",
+                          "Share: ${vault.allocationPercent.toInt()}% | ₹${vault.currentAmount.toInt()} / ₹${vault.targetAmount.toInt()}",
                           style:
                               TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
@@ -299,7 +414,7 @@ class _VaultScreenState extends State<VaultScreen> {
               ),
               const SizedBox(height: 15),
               LinearProgressIndicator(
-                value: vault.percentage,
+                value: vault.percentage.clamp(0.0, 1.0),
                 backgroundColor: _backgroundGray,
                 color: _progressGreen,
                 minHeight: 8,

@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:telephony/telephony.dart';
-import '../main.dart'; // To access backgroundMessageHandler
 import 'dashboard_screen.dart';
 import 'vault_screen.dart';
 import 'insights_screen.dart';
 import 'profile_screen.dart';
 import 'feed_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:telephony/telephony.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart'; // REQUIRED FOR DateFormat
 import '../presentation/providers/auth_provider.dart';
+import '../data/models/profile_model.dart';
 import '../models/transaction.dart';
 import '../services/cloud_service.dart';
 import '../services/local_cache_service.dart';
 import '../utils/sms_parser.dart';
+import '../main.dart'; // For backgroundMessageHandler
 
 class MainHub extends StatefulWidget {
   const MainHub({super.key});
@@ -29,10 +31,7 @@ class _MainHubState extends State<MainHub> {
   @override
   void initState() {
     super.initState();
-    
-    // START THE SMS ENGINE
-    _initSmsIntegration();
-
+    // Use the cacheService from Provider
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final cacheService = context.read<LocalCacheService>();
       setState(() {
@@ -46,6 +45,8 @@ class _MainHubState extends State<MainHub> {
       if (authProvider.needsRestoreCheck) {
         _showRestoreDialog();
       }
+
+      await _initSmsIntegration();
     });
   }
 
@@ -55,7 +56,7 @@ class _MainHubState extends State<MainHub> {
 
     if (status.isGranted) {
       debugPrint("SMS Engine: ONLINE");
-      
+
       telephony.listenIncomingSms(
         onNewMessage: (SmsMessage message) {
           // IMMEDIATE VISUAL PROOF on your phone screen
@@ -76,22 +77,19 @@ class _MainHubState extends State<MainHub> {
   Future<void> _processMessage(String? body) async {
     if (body == null) return;
 
+    final authProvider = context.read<AuthProvider>();
+    final isEnabled = authProvider.profile?.smsTrackingEnabled ?? true;
+
+    if (!isEnabled) {
+      debugPrint("SMS tracking is disabled by user. Ignoring message.");
+      return;
+    }
+
     // RUN THE BRAIN (Regex Engine)
     final parsed = SmsParser.parse(body);
 
     if (parsed.amount > 0) {
-      final cacheService = context.read<LocalCacheService>();
-      
-      final newTx = ExpenseTransaction(
-        title: parsed.title,
-        amount: parsed.amount,
-        date: DateTime.now(),
-        isExpense: parsed.isExpense,
-        category: 'SMS Auto-Log',
-        smsRawText: body,
-      );
-
-      await cacheService.saveTransaction(newTx);
+      await _handleParsedTransaction(parsed, body);
 
       // SUCCESS POP-UP
       ScaffoldMessenger.of(context).showSnackBar(
@@ -104,9 +102,9 @@ class _MainHubState extends State<MainHub> {
     }
   }
 
-  // ... rest of the file ...
   void _showRestoreDialog() async {
     final authProvider = context.read<AuthProvider>();
+    final user = authProvider.user;
     
     final shouldRestore = await showDialog<bool>(
       context: context,
@@ -130,6 +128,11 @@ class _MainHubState extends State<MainHub> {
 
     if (shouldRestore == true) {
       await authProvider.restoreData();
+    } else {
+      // Clear any existing local data on "Fresh Start"
+      if (user != null) {
+        await authProvider.clearLocalData(user.uid);
+      }
     }
     
     authProvider.completeRestoreCheck();
@@ -140,14 +143,34 @@ class _MainHubState extends State<MainHub> {
     final profile = authProvider.profile;
 
     if (profile != null) {
+      // Create string date YYYY-MM-DD
+      final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
       final updatedProfile = profile.copyWith(
         lifetimePoints: profile.lifetimePoints + points,
-        lastQuizDate: DateTime.now(),
+        lastQuizDate: todayDate, // SYNC STRING DATE TO CLOUD
         quizStatus: "completed",
         updatedAt: DateTime.now(),
       );
       await authProvider.saveProfile(updatedProfile);
     }
+  }
+
+  Future<void> _handleParsedTransaction(ParsedSms parsed, String rawText) async {
+    final authProvider = context.read<AuthProvider>();
+
+    // Create the transaction
+    final tx = ExpenseTransaction(
+      title: parsed.title,
+      amount: parsed.amount,
+      category: parsed.isExpense ? "Other" : "Income",
+      isExpense: parsed.isExpense,
+      date: DateTime.now(),
+      smsRawText: rawText,
+    );
+
+    // Use AuthProvider to save transaction which triggers the centralized allocation logic
+    await authProvider.saveTransaction(tx);
   }
 
   @override

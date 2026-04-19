@@ -4,6 +4,7 @@ import '../../data/models/auth_user_model.dart' as model;
 import '../../data/models/profile_model.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../services/biometric_service.dart';
+import '../../models/transaction.dart';
 
 class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
   final UserRepository _userRepository;
@@ -135,33 +136,49 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> clearLocalData(String uid) async {
+    if (_user != null) {
+      await _userRepository.clearLocalData(uid);
+      await _loadProfile(uid);
+    }
+    notifyListeners();
+  }
+
   Future<void> restoreData() async {
     if (_user != null) {
       _setLoading(true);
       try {
         await _userRepository.restoreTransactions(_user!.uid);
+        await _loadProfile(_user!.uid);
       } finally {
         _setLoading(false);
       }
     }
   }
 
+  Future<void> saveTransaction(ExpenseTransaction transaction) async {
+    if (_user == null) return;
+    _setLoading(true);
+    try {
+      await _userRepository.saveTransaction(transaction, uid: _user!.uid);
+      // Reload profile because saveTransaction updates the totalLockedSavings in Isar
+      await _loadProfile(_user!.uid);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> logout({bool shouldBackup = false}) async {
     final uid = _user?.uid;
-    
-    // 1. Perform background backup if requested
-    if (uid != null && shouldBackup) {
+    if (uid != null) {
       _setLoading(true);
       try {
-        await _userRepository.logout(uid, shouldBackup: true);
+        await _userRepository.logout(uid, shouldBackup: shouldBackup);
       } finally {
         _setLoading(false);
       }
-    } else if (uid != null) {
-      await _userRepository.logout(uid, shouldBackup: false);
     }
 
-    // 2. Clear state immediately for instant UI response
     _user = null;
     _profile = null;
     _isBiometricAuthenticated = false;
@@ -177,7 +194,6 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached && _user != null) {
-      // Best-effort log for app cleanup/exit
       _userRepository.logout(_user!.uid); 
     }
   }

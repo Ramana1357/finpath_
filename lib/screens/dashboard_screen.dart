@@ -30,6 +30,7 @@ class DashboardScreen extends StatelessWidget {
 
   // --- MATH HELPERS ---
   double _calculateTotalSpentThisMonth(List<ExpenseTransaction> transactions) {
+    if (transactions.isEmpty) return 0.0;
     double total = 0;
     final now = DateTime.now();
     for (var tx in transactions) {
@@ -41,6 +42,7 @@ class DashboardScreen extends StatelessWidget {
   }
 
   double _calculateTotalSpentToday(List<ExpenseTransaction> transactions) {
+    if (transactions.isEmpty) return 0.0;
     double total = 0;
     final now = DateTime.now();
     for (var tx in transactions) {
@@ -52,6 +54,7 @@ class DashboardScreen extends StatelessWidget {
   }
 
   double _calculateTotalBalance(List<ExpenseTransaction> transactions) {
+    if (transactions.isEmpty) return 0.0;
     double total = 0;
     for (var tx in transactions) {
       if (tx.isExpense) {
@@ -73,31 +76,37 @@ class DashboardScreen extends StatelessWidget {
           builder: (context, snapshot) {
             final transactions = snapshot.data ?? [];
             
-            return SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildAppBar(context),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 20),
-                        _buildTopStatsRow(),
-                        const SizedBox(height: 15),
-                        _buildTotalBalanceCard(transactions),
-                        const SizedBox(height: 15),
-                        _buildMonthlyOverviewCard(transactions),
-                        const SizedBox(height: 20),
-                        _buildTodaySpendingCard(transactions),
-                        const SizedBox(height: 20),
-                        _buildRecentExpensesSection(context, transactions),
-                        const SizedBox(height: 30),
-                      ],
+            return RefreshIndicator(
+              onRefresh: () async {
+                // Future implementation for cloud sync trigger
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildAppBar(context),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          _buildTopStatsRow(),
+                          const SizedBox(height: 15),
+                          _buildTotalBalanceCard(transactions),
+                          const SizedBox(height: 15),
+                          _buildMonthlyOverviewCard(transactions),
+                          const SizedBox(height: 20),
+                          _buildTodaySpendingCard(transactions),
+                          const SizedBox(height: 20),
+                          _buildRecentExpensesSection(context, transactions),
+                          const SizedBox(height: 30),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }
@@ -109,9 +118,17 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
     final profile = authProvider.profile;
-    final String initials = profile?.name != null && profile!.name.isNotEmpty 
-        ? profile.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : 'JD';
+    
+    // SAFE ACCESS: Check if name exists before split/indexing
+    String initials = 'JD';
+    if (profile?.name != null && profile!.name.trim().isNotEmpty) {
+      try {
+        initials = profile.name.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').where((s) => s.isNotEmpty).take(2).join().toUpperCase();
+        if (initials.isEmpty) initials = 'JD';
+      } catch (e) {
+        initials = 'JD';
+      }
+    }
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -195,46 +212,6 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSyncStatus(BuildContext context, ConnectionState state) {
-    final authProvider = context.read<AuthProvider>();
-    final userId = authProvider.user?.uid ?? "Not Logged In";
-    
-    final bool isLoading = state == ConnectionState.waiting;
-
-    return InkWell(
-      onTap: onGenerateId,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: accentTeal.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: accentTeal.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isLoading ? Icons.sync : Icons.cloud_done_outlined, 
-              color: primaryTeal, 
-              size: 20
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Cloud Connection", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: primaryTeal)),
-                  Text("User ID: $userId", style: TextStyle(color: Colors.blueGrey[400], fontSize: 10), overflow: TextOverflow.ellipsis),
-                  Text(isLoading ? "Syncing..." : statusMessage, style: TextStyle(color: Colors.blueGrey[400], fontSize: 11), overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-            const Icon(Icons.refresh, color: primaryTeal, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTotalBalanceCard(List<ExpenseTransaction> transactions) {
     final double totalBalance = _calculateTotalBalance(transactions);
     final Color balanceColor = totalBalance >= 0 ? primaryTeal : Colors.redAccent;
@@ -257,7 +234,7 @@ class DashboardScreen extends StatelessWidget {
           CircleAvatar(
             radius: 25,
             backgroundColor: accentTeal.withOpacity(0.2),
-            child: Icon(Icons.account_balance_wallet_outlined, color: primaryTeal, size: 28),
+            child: const Icon(Icons.account_balance_wallet_outlined, color: primaryTeal, size: 28),
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -322,8 +299,9 @@ class DashboardScreen extends StatelessWidget {
                     sectionsSpace: 0,
                     centerSpaceRadius: 60,
                     sections: [
-                      PieChartSectionData(color: primaryTeal, value: totalSpent > 0 ? totalSpent : 1, radius: 20, showTitle: false),
-                      PieChartSectionData(color: Colors.grey[200], value: (monthlyLimit - totalSpent) > 0 ? (monthlyLimit - totalSpent) : 0, radius: 20, showTitle: false),
+                      // SAFE ACCESS: Prevent 0 value crash in PieChart
+                      PieChartSectionData(color: primaryTeal, value: totalSpent > 0 ? totalSpent : 0.001, radius: 20, showTitle: false),
+                      PieChartSectionData(color: Colors.grey[200], value: (monthlyLimit - totalSpent) > 0 ? (monthlyLimit - totalSpent) : 0.001, radius: 20, showTitle: false),
                     ],
                   ),
                 ),
@@ -432,38 +410,49 @@ class DashboardScreen extends StatelessWidget {
             ),
             initiallyExpanded: true, 
             children: [
-              transactions.isEmpty
-                  ? const Padding(padding: EdgeInsets.all(20), child: Text("No transactions logged yet."))
-                  : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: transactions.length > 5 ? 5 : transactions.length,
-                itemBuilder: (context, index) {
-                  final tx = transactions[index];
+              // SAFE ACCESS: Show empty state instead of crashing
+              if (transactions.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+                  child: Column(
+                    children: [
+                      Icon(Icons.receipt_long_outlined, size: 40, color: Colors.grey),
+                      SizedBox(height: 10),
+                      Text("No transactions logged yet.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    ],
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: transactions.length > 5 ? 5 : transactions.length,
+                  itemBuilder: (context, index) {
+                    final tx = transactions[index];
 
-                  final bool isExpense = tx.isExpense;
-                  final String sign = isExpense ? '-' : '+';
-                  final Color amountColor = isExpense ? Colors.redAccent : Colors.green;
-                  final Color avatarBgColor = isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1);
-                  final IconData txIcon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+                    final bool isExpense = tx.isExpense;
+                    final String sign = isExpense ? '-' : '+';
+                    final Color amountColor = isExpense ? Colors.redAccent : Colors.green;
+                    final Color avatarBgColor = isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1);
+                    final IconData txIcon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
 
-                  return ListTile(
-                    leading: CircleAvatar(
-                        backgroundColor: avatarBgColor,
-                        child: Icon(txIcon, color: amountColor, size: 20)
-                    ),
-                    title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text(
-                        isExpense ? 'Debit' : 'Credit',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12)
-                    ),
-                    trailing: Text(
-                        '$sign ₹${tx.amount.toStringAsFixed(2)}',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: amountColor, fontSize: 15)
-                    ),
-                  );
-                },
-              ),
+                    return ListTile(
+                      leading: CircleAvatar(
+                          backgroundColor: avatarBgColor,
+                          child: Icon(txIcon, color: amountColor, size: 20)
+                      ),
+                      title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                          isExpense ? 'Debit' : 'Credit',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 12)
+                      ),
+                      trailing: Text(
+                          '$sign ₹${tx.amount.toStringAsFixed(2)}',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: amountColor, fontSize: 15)
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
         ),
