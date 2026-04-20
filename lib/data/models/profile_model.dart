@@ -19,6 +19,10 @@ class ProfileModel {
   final int allowancePercent;
   final int dreamVaultPercent;
   final int emergencyPercent;
+  final double needsTarget;
+  final double wantsTarget;
+  final double savingsTarget;
+  final double monthlyAllowance;
   final bool biometricEnabled;
   final int lifetimePoints;
   
@@ -50,6 +54,10 @@ class ProfileModel {
     this.allowancePercent = 50,
     this.dreamVaultPercent = 30,
     this.emergencyPercent = 20,
+    this.needsTarget = 50.0,
+    this.wantsTarget = 30.0,
+    this.savingsTarget = 20.0,
+    this.monthlyAllowance = 30000.0,
     this.biometricEnabled = false,
     this.lifetimePoints = 0,
     this.lastQuizDate,
@@ -79,6 +87,10 @@ class ProfileModel {
       'allowancePercent': allowancePercent,
       'dreamVaultPercent': dreamVaultPercent,
       'emergencyPercent': emergencyPercent,
+      'needsTarget': needsTarget,
+      'wantsTarget': wantsTarget,
+      'savingsTarget': savingsTarget,
+      'monthlyAllowance': monthlyAllowance,
       'biometricEnabled': biometricEnabled,
       'lifetimePoints': lifetimePoints,
       'lastQuizDate': lastQuizDate,
@@ -109,6 +121,10 @@ class ProfileModel {
       allowancePercent: map['allowancePercent'] as int? ?? 50,
       dreamVaultPercent: map['dreamVaultPercent'] as int? ?? 30,
       emergencyPercent: map['emergencyPercent'] as int? ?? 20,
+      needsTarget: (map['needsTarget'] as num?)?.toDouble() ?? 50.0,
+      wantsTarget: (map['wantsTarget'] as num?)?.toDouble() ?? 30.0,
+      savingsTarget: (map['savingsTarget'] as num?)?.toDouble() ?? 20.0,
+      monthlyAllowance: (map['monthlyAllowance'] as num?)?.toDouble() ?? 30000.0,
       biometricEnabled: map['biometricEnabled'] as bool? ?? false,
       lifetimePoints: map['lifetimePoints'] as int? ?? 0,
       lastQuizDate: map['lastQuizDate'] as String?,
@@ -139,6 +155,10 @@ class ProfileModel {
     int? allowancePercent,
     int? dreamVaultPercent,
     int? emergencyPercent,
+    double? needsTarget,
+    double? wantsTarget,
+    double? savingsTarget,
+    double? monthlyAllowance,
     bool? biometricEnabled,
     int? lifetimePoints,
     String? lastQuizDate,
@@ -166,6 +186,10 @@ class ProfileModel {
       allowancePercent: allowancePercent ?? this.allowancePercent,
       dreamVaultPercent: dreamVaultPercent ?? this.dreamVaultPercent,
       emergencyPercent: emergencyPercent ?? this.emergencyPercent,
+      needsTarget: needsTarget ?? this.needsTarget,
+      wantsTarget: wantsTarget ?? this.wantsTarget,
+      savingsTarget: savingsTarget ?? this.savingsTarget,
+      monthlyAllowance: monthlyAllowance ?? this.monthlyAllowance,
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
       lifetimePoints: lifetimePoints ?? this.lifetimePoints,
       lastQuizDate: lastQuizDate ?? this.lastQuizDate,

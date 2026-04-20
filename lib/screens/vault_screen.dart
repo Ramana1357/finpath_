@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../models/transaction.dart';
 import 'profile_screen.dart';
+import 'notifications_screen.dart';
 
 // --- DATA MODEL (Ready for Backend Integration) ---
 import '../data/models/vault_model.dart';
@@ -310,7 +311,12 @@ class _VaultScreenState extends State<VaultScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                  );
+                },
               ),
               GestureDetector(
                 onTap: () {
