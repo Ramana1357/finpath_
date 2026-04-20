@@ -14,57 +14,22 @@ class BiometricAuthScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.fingerprint, size: 100, color: Colors.blue),
+            const Icon(Icons.fingerprint, size: 100, color: Colors.teal),
             const SizedBox(height: 20),
             const Text(
-              'Welcome Back!',
+              'Unlock Finpath',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            const Text('Please authenticate to continue'),
-            const SizedBox(height: 40),
+            const Text('Use biometric authentication to access your data'),
+            const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: () async {
-                final success = await authProvider.authenticateWithBiometrics();
-                if (!success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Authentication failed')),
-                  );
-                }
-              },
-              child: const Text('Unlock with Biometrics'),
+              onPressed: () => authProvider.authenticateWithBiometrics(),
+              child: const Text('Authenticate'),
             ),
             TextButton(
-              onPressed: () async {
-                final result = await showDialog<int>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text("Log Out"),
-                    content: const Text("Would you like to save your last 6 months of data to the cloud?"),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, 0), // Cancel
-                        child: const Text("Cancel"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, 1), // Logout No Backup
-                        child: const Text("Just Logout", style: TextStyle(color: Colors.grey)),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(context, 2), // Logout With Backup
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
-                        child: const Text("Backup & Logout", style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
-                  ),
-                );
-
-                if (result != null && result > 0) {
-                  final bool shouldBackup = (result == 2);
-                  await authProvider.logout(shouldBackup: shouldBackup);
-                }
-              },
-              child: const Text('Log out and use different account'),
+              onPressed: () => authProvider.logout(),
+              child: const Text('Logout'),
             ),
           ],
         ),

@@ -5,10 +5,8 @@ import '../../services/firestore_service.dart';
 import '../../services/local_cache_service.dart';
 import '../models/auth_user_model.dart';
 import '../models/profile_model.dart';
-import '../models/user_lifetime_log_model.dart';
 import '../../models/transaction.dart';
 import '../../services/cloud_service.dart';
-import 'package:uuid/uuid.dart';
 
 class UserRepository {
   final AuthService _authService;
@@ -80,14 +78,21 @@ class UserRepository {
   Future<void> saveTransaction(ExpenseTransaction transaction, {String? uid}) async {
     await _cacheService.saveTransaction(transaction);
     
-    // Trigger atomic income allocation if it's income and we have a uid
-    if (!transaction.isExpense && uid != null) {
-      await _cacheService.performIncomeAllocation(uid, transaction.amount);
+    if (uid != null) {
+      // 1. Trigger atomic income allocation if it's income
+      if (!transaction.isExpense) {
+        await _cacheService.performIncomeAllocation(uid, transaction.amount);
+      }
+      
+      // 2. IMPORTANT: Sync the updated profile (potentially changed by Crisis Mode or Income Allocation) to Firestore
+      final updatedProfile = await _cacheService.getProfile(uid);
+      if (updatedProfile != null) {
+        await _firestoreService.saveProfile(updatedProfile);
+      }
     }
     
-    // Trigger analysis immediately
-    final transactions = await _cacheService.getTransactionsForLastSixMonths();
-    await CloudService().runAutoAnalysisFromLocal(transactions);
+    // 3. Analysis is now handled by the Python backend asynchronously.
+    // No longer triggering local analysis here.
   }
 
   Future<bool> signInWithGoogle() async {
@@ -138,7 +143,10 @@ class UserRepository {
     await _cacheService.clearTransactions();
     final localProfile = await _cacheService.getProfile(uid);
     if (localProfile != null) {
-      await _cacheService.saveProfile(localProfile.copyWith(totalLockedSavings: 0.0));
+      await _cacheService.saveProfile(localProfile.copyWith(
+        totalLockedSavings: 0.0,
+        totalVaultSavings: 0.0,
+      ));
     }
 
     final snapshots = await _firestoreService.getTransactionsCollection()
@@ -191,14 +199,13 @@ class UserRepository {
     final finalProfile = remoteProfile.copyWith(
       id: currentLocal?.id, // Ensure we update the existing Isar record
       totalLockedSavings: correctedTotalSavings,
+      totalVaultSavings: 0.0, // Vaults will be empty until new income is logged
       updatedAt: DateTime.now(),
     );
 
     await saveProfile(finalProfile);
 
-    // 5. Trigger fresh analysis
-    final transactions = await _cacheService.getTransactionsForLastSixMonths();
-    await CloudService().runAutoAnalysisFromLocal(transactions);
+    // 5. Analysis is now handled by the Python backend asynchronously.
   }
 
   Future<void> clearLocalData(String uid) async {
@@ -210,6 +217,7 @@ class UserRepository {
     if (remoteProfile != null) {
       final resetProfile = remoteProfile.copyWith(
         totalLockedSavings: 0.0,
+        totalVaultSavings: 0.0,
         updatedAt: DateTime.now(),
       );
       // This updates both Firestore and the now-empty Local Cache
@@ -227,6 +235,7 @@ class UserRepository {
     if (remoteProfile != null) {
       final updatedProfile = remoteProfile.copyWith(
         totalLockedSavings: 0.0,
+        totalVaultSavings: 0.0,
         updatedAt: DateTime.now(),
       );
       await _firestoreService.saveProfile(updatedProfile);

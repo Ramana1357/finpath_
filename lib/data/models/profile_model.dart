@@ -30,10 +30,13 @@ class ProfileModel {
   final DateTime updatedAt;
   
   final double totalLockedSavings;
+  final double totalVaultSavings;
   final bool smsTrackingEnabled;
   final bool hasSeenInitialSync;
   final double dailyLimit;
   final double monthlyLimit;
+  final bool isCrisisMode;
+  final String? profilePictureUrl;
 
   ProfileModel({
     required this.uid,
@@ -54,10 +57,13 @@ class ProfileModel {
     required this.createdAt,
     required this.updatedAt,
     this.totalLockedSavings = 0.0,
+    this.totalVaultSavings = 0.0,
     this.smsTrackingEnabled = true,
     this.hasSeenInitialSync = false,
     this.dailyLimit = 1000.0,
     this.monthlyLimit = 30000.0,
+    this.isCrisisMode = false,
+    this.profilePictureUrl,
   });
 
   Map<String, dynamic> toMap() {
@@ -80,10 +86,13 @@ class ProfileModel {
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'totalLockedSavings': totalLockedSavings,
+      'totalVaultSavings': totalVaultSavings,
       'smsTrackingEnabled': smsTrackingEnabled,
       'hasSeenInitialSync': hasSeenInitialSync,
       'dailyLimit': dailyLimit,
       'monthlyLimit': monthlyLimit,
+      'isCrisisMode': isCrisisMode,
+      'profilePictureUrl': profilePictureUrl,
     };
   }
 
@@ -107,10 +116,13 @@ class ProfileModel {
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
       totalLockedSavings: (map['totalLockedSavings'] as num?)?.toDouble() ?? 0.0,
+      totalVaultSavings: (map['totalVaultSavings'] as num?)?.toDouble() ?? 0.0,
       smsTrackingEnabled: map['smsTrackingEnabled'] as bool? ?? true,
       hasSeenInitialSync: map['hasSeenInitialSync'] as bool? ?? false,
       dailyLimit: (map['dailyLimit'] as num?)?.toDouble() ?? 1000.0,
       monthlyLimit: (map['monthlyLimit'] as num?)?.toDouble() ?? 30000.0,
+      isCrisisMode: map['isCrisisMode'] as bool? ?? false,
+      profilePictureUrl: map['profilePictureUrl'] as String?,
     );
   }
 
@@ -134,10 +146,13 @@ class ProfileModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     double? totalLockedSavings,
+    double? totalVaultSavings,
     bool? smsTrackingEnabled,
     bool? hasSeenInitialSync,
     double? dailyLimit,
     double? monthlyLimit,
+    bool? isCrisisMode,
+    String? profilePictureUrl,
   }) {
     return ProfileModel(
       uid: uid ?? this.uid,
@@ -158,10 +173,13 @@ class ProfileModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       totalLockedSavings: totalLockedSavings ?? this.totalLockedSavings,
+      totalVaultSavings: totalVaultSavings ?? this.totalVaultSavings,
       smsTrackingEnabled: smsTrackingEnabled ?? this.smsTrackingEnabled,
       hasSeenInitialSync: hasSeenInitialSync ?? this.hasSeenInitialSync,
       dailyLimit: dailyLimit ?? this.dailyLimit,
       monthlyLimit: monthlyLimit ?? this.monthlyLimit,
+      isCrisisMode: isCrisisMode ?? this.isCrisisMode,
+      profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
     )..id = id ?? this.id;
   }
 }

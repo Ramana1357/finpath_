@@ -162,8 +162,9 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     _setLoading(true);
     try {
       await _userRepository.saveTransaction(transaction, uid: _user!.uid);
-      // Reload profile because saveTransaction updates the totalLockedSavings in Isar
-      await _loadProfile(_user!.uid);
+      // Ensure we fetch the updated profile from Isar where performIncomeAllocation saved it
+      _profile = await _userRepository.getProfile(_user!.uid, forceRefresh: true);
+      notifyListeners();
     } finally {
       _setLoading(false);
     }

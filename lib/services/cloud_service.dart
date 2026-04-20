@@ -1,11 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/services.dart';
-import 'package:google_generative_ai/google_generative_ai.dart'; // Added Dart SDK
-import '../models/cloud_transaction.dart';
 import '../models/transaction.dart';
-import '../models/cloud_insight.dart';
 
 class CloudService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -14,24 +12,21 @@ class CloudService {
   // Bridge to Python/Kotlin
   static const _pythonChannel = MethodChannel('com.finpath.python');
   
-  // Gemini Configuration (Dart)
-  static const String _geminiKey = String.fromEnvironment('GEMINI_API_KEY');
-
   // Stream of transactions from Firestore for the current user
-  Stream<List<CloudTransaction>> getTransactionsStream() {
+  Stream<List<ExpenseTransaction>> getTransactionsStream() {
     String? uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value([]);
 
-    print("Fetching cloud transactions for UID: $uid"); // DEBUG
+    // debugPrint("Fetching cloud transactions for UID: $uid"); // DEBUG
 
     return _db
         .collection('transactions')
         .where('userId', isEqualTo: uid)
         .snapshots()
         .map((snapshot) {
-          print("Received ${snapshot.docs.length} docs from Firestore"); // DEBUG
+          // debugPrint("Received ${snapshot.docs.length} docs from Firestore"); // DEBUG
           final txs = snapshot.docs
-              .map((doc) => CloudTransaction.fromFirestore(doc))
+              .map((doc) => ExpenseTransaction.fromFirestore(doc.data()))
               .toList();
           
           // Sort in memory instead to avoid Firestore index errors
@@ -41,13 +36,13 @@ class CloudService {
   }
 
   // Stream of insights
-  Stream<CloudInsight?> getInsightsStream() {
+  Stream<Map<String, dynamic>?> getInsightsStream() {
     String? uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value(null);
 
     return _db.collection('insights').doc(uid).snapshots().map((doc) {
       if (!doc.exists) return null;
-      return CloudInsight.fromFirestore(doc);
+      return doc.data();
     });
   }
 
@@ -56,100 +51,6 @@ class CloudService {
   }
 
   /// Trigger analysis based on recent activity (Automatic)
-  Future<void> runAutoAnalysis(List<CloudTransaction> transactions) async {
-    String? uid = _auth.currentUser?.uid;
-    if (uid == null || transactions.isEmpty) return;
-
-    try {
-      final txData = transactions.map((tx) => {
-        "title": tx.title,
-        "amount": tx.amount,
-        "isExpense": tx.isExpense,
-        "date": tx.date.toIso8601String()
-      }).toList();
-
-      await _runAnalysisWithData(uid, txData);
-    } catch (e) {
-      print("Analysis Error: $e");
-    }
-  }
-
-  Future<void> runAutoAnalysisFromLocal(List<ExpenseTransaction> transactions) async {
-    String? uid = _auth.currentUser?.uid;
-    if (uid == null || transactions.isEmpty) return;
-
-    try {
-      final txData = transactions.map((tx) => {
-        "title": tx.title,
-        "amount": tx.amount,
-        "isExpense": tx.isExpense,
-        "date": tx.date.toIso8601String()
-      }).toList();
-
-      await _runAnalysisWithData(uid, txData);
-    } catch (e) {
-      print("Analysis Error: $e");
-    }
-  }
-
-  Future<void> _runAnalysisWithData(String uid, List<Map<String, dynamic>> txData) async {
-    // 1. Get raw stats from Python (Pure Math, very fast)
-    final String pyResultJson = await _pythonChannel.invokeMethod('runInsights', {
-      'transactions': jsonEncode(txData),
-      'physicalCash': 0.0,
-    });
-    final Map<String, dynamic> pyStats = jsonDecode(pyResultJson);
-
-    if (pyStats['status'] == 'success') {
-      // 2. Generate coaching cards using Dart Google AI SDK (Low Cost)
-      final feedSummaries = await _generateDartAiCoach(pyStats);
-
-      // 3. Update Firestore
-      await _db.collection('insights').doc(uid).set({
-        "health_score": pyStats['health_score'],
-        "top_categories": pyStats['categories'], // Assuming Python returns this
-        "feed_summaries": feedSummaries,
-        "lastUpdated": FieldValue.serverTimestamp(),
-        "status": "AI Updated (Local Data)"
-      }, SetOptions(merge: true));
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _generateDartAiCoach(Map<String, dynamic> stats) async {
-    try {
-      // Reverting to the most standard 1.5-flash which has the highest free tier quota
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: _geminiKey);
-      
-      // DEBUG: List available models to console
-      // Note: This requires the listModels API which might not be directly in the simple GenerativeModel class
-      // but we can try to see what's available or just try the most common names.
-      
-      final prompt = """
-      Role: Witty financial coach for a college student.
-      Stats: Income: ${stats['income']}, Expenses: ${stats['expenses']}, Categories: ${stats['categories']}.
-      Task: Create 2 short, catchy coaching cards.
-      Output format: JSON list of objects.
-      Keys: "type" (positive, warning, alert), "title", "message" (max 12 words).
-      No markdown, just raw JSON.
-      """;
-
-      final response = await model.generateContent([Content.text(prompt)]);
-      String text = response.text?.trim() ?? "[]";
-      
-      // Basic cleaning in case AI returns markdown
-      if (text.contains("```json")) {
-        text = text.split("```json")[1].split("```")[0].trim();
-      } else if (text.contains("```")) {
-        text = text.split("```")[1].split("```")[0].trim();
-      }
-
-      return List<Map<String, dynamic>>.from(jsonDecode(text));
-    } catch (e) {
-      print("Dart AI Error: $e");
-      return [{"type": "neutral", "title": "Focus On Spending", "message": "Keep logging your spends to get smart AI tips."}];
-    }
-  }
-
   Future<void> updatePhysicalCash(double amount) async {
     // ... logic remains same, but trigger auto analysis after audit
     String? uid = _auth.currentUser?.uid;
@@ -157,8 +58,8 @@ class CloudService {
     await _db.collection('audits').doc(uid).set({'cash_on_hand': amount, 'last_updated': FieldValue.serverTimestamp()});
     // Trigger analysis with the current transactions
     final snapshot = await _db.collection('transactions').where('userId', isEqualTo: uid).get();
-    final txs = snapshot.docs.map((doc) => CloudTransaction.fromFirestore(doc)).toList();
-    await runAutoAnalysis(txs);
+    final txs = snapshot.docs.map((doc) => ExpenseTransaction.fromFirestore(doc.data())).toList();
+    // Analysis is now handled by the backend
   }
 
   Future<void> updateUserProfile(String name, String bio) async {

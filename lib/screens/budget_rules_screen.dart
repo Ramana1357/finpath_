@@ -96,18 +96,10 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
                   ? () async {
                       final profile = authProvider.profile;
                       if (profile != null) {
-                        final updatedProfile = ProfileModel(
-                          uid: profile.uid,
-                          name: profile.name,
-                          age: profile.age,
-                          email: profile.email,
-                          gender: profile.gender,
-                          financialDetails: profile.financialDetails,
-                          qualification: profile.qualification,
+                        final updatedProfile = profile.copyWith(
                           allowancePercent: allowance.toInt(),
                           dreamVaultPercent: dreamVault.toInt(),
                           emergencyPercent: emergency.toInt(),
-                          createdAt: profile.createdAt,
                           updatedAt: DateTime.now(),
                         );
                         await authProvider.saveProfile(updatedProfile);

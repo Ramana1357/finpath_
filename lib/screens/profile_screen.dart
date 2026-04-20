@@ -65,7 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 30),
-                _buildHeader(name, bio),
+                _buildHeader(name, bio, profile),
                 const SizedBox(height: 30),
                 _buildGamificationCard(streak, profile),
                 const SizedBox(height: 30),
@@ -84,6 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildGeneralSettingsList(String name, String bio, ProfileModel? profile) {
+    final authProvider = context.read<AuthProvider>();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
@@ -134,6 +135,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text("Preferences & Security", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
           _buildSmsToggle(context, profile),
+          _buildCrisisModeCard(profile?.isCrisisMode ?? false, authProvider),
           _buildBiometricToggle(context, profile),
           _buildSettingsItem(
             Icons.lock_outline, 
@@ -145,30 +147,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildCrisisModeCard(bool isActive, AuthProvider authProvider) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: isActive ? Colors.red.withOpacity(0.3) : Colors.transparent),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _backgroundGray,
+          child: Icon(
+            Icons.shield_outlined,
+            color: isActive ? Colors.red : Colors.grey,
+          ),
+        ),
+        title: const Text(
+          "Crisis Mode Setup",
+          style: TextStyle(fontWeight: FontWeight.bold, color: _primaryTeal, fontSize: 15),
+        ),
+        subtitle: Text(
+          isActive ? "Crisis Mode ACTIVE" : "Currently Safe (Inactive)",
+          style: TextStyle(
+            color: isActive ? Colors.red : Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+        trailing: Switch(
+          value: isActive,
+          onChanged: (val) async {
+            final latestProfile = await context.read<LocalCacheService>().getProfile(authProvider.user!.uid);
+            if (latestProfile != null) {
+              final updatedProfile = latestProfile.copyWith(
+                isCrisisMode: val,
+                updatedAt: DateTime.now(),
+              );
+              await authProvider.saveProfile(updatedProfile);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(val ? "CRISIS MODE ENABLED: Emergency funds unlocked." : "Crisis mode disabled."),
+                    backgroundColor: val ? Colors.orange : Colors.green,
+                  ),
+                );
+              }
+            }
+          },
+          activeColor: Colors.red,
+        ),
+      ),
+    );
+  }
 
-  Widget _buildHeader(String name, String bio) {
+
+  Widget _buildHeader(String name, String bio, ProfileModel? profile) {
     return Column(
       children: [
-        Stack(
-          children: [
-            const CircleAvatar(
-              radius: 50,
-              backgroundColor: _primaryTeal,
-              child: Icon(Icons.person, size: 50, color: Colors.white),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: CircleAvatar(
-                radius: 18,
-                backgroundColor: _primaryTeal,
-                child: IconButton(
-                  icon: const Icon(Icons.edit, size: 14, color: Colors.white),
-                  onPressed: () => _showEditPersonalInformationDialog(context),
-                ),
-              ),
-            ),
-          ],
+        CircleAvatar(
+          radius: 50,
+          backgroundColor: _primaryTeal,
+          backgroundImage: (profile?.profilePictureUrl != null && profile!.profilePictureUrl!.isNotEmpty)
+              ? NetworkImage(profile.profilePictureUrl!)
+              : null,
+          child: (profile?.profilePictureUrl == null || profile!.profilePictureUrl!.isEmpty)
+              ? const Icon(Icons.person, size: 50, color: Colors.white)
+              : null,
         ),
         const SizedBox(height: 15),
         Text(
@@ -261,6 +305,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           "Clear Transaction History",
           onTap: () => _clearTransactionHistory(context),
         ),
+        _buildSettingsItem(
+          Icons.auto_delete_outlined, 
+          "Nuke Isar DB (Full Reset)",
+          onTap: () => _nukeIsarDatabase(context),
+        ),
       ],
     );
   }
@@ -302,9 +351,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       createdTxs.add(tx);
     }
-
-    // Trigger analysis with the new local data
-    await CloudService().runAutoAnalysisFromLocal(createdTxs);
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -400,18 +446,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 
                 await cacheService.saveTransaction(tx);
                 
-                // Allocate to Locked Savings if Income (+x)
+                // Allocate to Locked Savings and Vaults if Income (+x)
                 if (!isExpense && authProvider.profile != null) {
                   final profile = authProvider.profile!;
-                  final double allocationAmount = (amount * profile.emergencyPercent) / 100;
-                  final updatedProfile = profile.copyWith(
-                    totalLockedSavings: profile.totalLockedSavings + allocationAmount,
-                    updatedAt: DateTime.now(),
-                  );
-                  await authProvider.saveProfile(updatedProfile);
+                  // Use the atomic allocation logic from LocalCacheService
+                  await cacheService.performIncomeAllocation(profile.uid, amount);
                 }
-
-                await CloudService().runAutoAnalysisFromLocal([tx]);
 
                 if (context.mounted) {
                   Navigator.pop(context);
@@ -428,6 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
 
   Future<void> _exportTransactionData(BuildContext context) async {
     final cacheService = context.read<LocalCacheService>();
@@ -576,6 +617,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Transaction history cleared."), backgroundColor: Colors.orange),
+        );
+      }
+    }
+  }
+
+  void _nukeIsarDatabase(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Nuke Local Database?"),
+        content: const Text("This will delete EVERYTHING in Isar (Profile, Vaults, Transactions). This is intended for developer testing."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text("Nuke It", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final cacheService = context.read<LocalCacheService>();
+      await cacheService.clearCache();
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Isar DB Nuked! Please restart the app."), backgroundColor: Colors.red),
         );
       }
     }
@@ -768,6 +838,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ageController = TextEditingController(text: profile?.age.toString());
     final qualificationController = TextEditingController(text: profile?.qualification);
     final financialController = TextEditingController(text: profile?.financialDetails);
+    final profilePicController = TextEditingController(text: profile?.profilePictureUrl);
     String? selectedGender = profile?.gender;
 
     showDialog(
@@ -797,6 +868,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 15),
                 _buildStyledTextField(qualificationController, "Qualification", Icons.school_outlined),
                 _buildStyledTextField(financialController, "Financial Details", Icons.wallet_outlined),
+                _buildStyledTextField(profilePicController, "Profile Picture URL", Icons.image_outlined),
               ],
             ),
           ),
@@ -814,6 +886,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   gender: selectedGender ?? profile.gender,
                   qualification: qualificationController.text,
                   financialDetails: financialController.text,
+                  profilePictureUrl: profilePicController.text,
                   updatedAt: DateTime.now(),
                 );
                 await authProvider.saveProfile(updatedProfile);

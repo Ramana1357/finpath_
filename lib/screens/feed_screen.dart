@@ -5,12 +5,11 @@ import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../presentation/providers/auth_provider.dart';
 import 'profile_screen.dart';
-import 'cloud_feed_screen.dart';
+import 'notifications_screen.dart';
 import '../services/cloud_service.dart';
 import '../services/local_cache_service.dart';
 import '../services/finance_feed_service.dart';
 import '../models/transaction.dart';
-import '../models/cloud_insight.dart';
 import '../models/finance_tip_model.dart';
 import '../widgets/daily_quiz_card.dart';
 
@@ -83,12 +82,6 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     setState(() {
       _transactionStream = _cacheService.watchTransactions();
     });
-    
-    _transactionStream.listen((transactions) {
-      if (transactions.isNotEmpty) {
-        CloudService().runAutoAnalysisFromLocal(transactions);
-      }
-    });
   }
 
   Future<void> _launchURL(String urlString) async {
@@ -127,7 +120,6 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
           cacheExtent: 1000,
           slivers: [
             SliverToBoxAdapter(child: _buildAppBar(context)),
-            SliverToBoxAdapter(child: _buildAiCoachSection()),
             const SliverToBoxAdapter(child: DailyQuizCard()),
             SliverToBoxAdapter(child: _buildSectionHeader("Opportunities for You", false)),
             SliverToBoxAdapter(child: _buildOpportunitiesList()),
@@ -416,7 +408,12 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
             children: [
               IconButton(
                 icon: const Icon(Icons.notifications_none, color: Colors.white),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                  );
+                },
               ),
               GestureDetector(
                 onTap: () {
@@ -558,29 +555,6 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildAiCoachSection() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [_primaryTeal, _accentTeal]),
-        borderRadius: BorderRadius.circular(25),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.auto_awesome, color: Colors.white),
-          SizedBox(width: 15),
-          Expanded(
-            child: Text(
-              "Your AI Coach is analyzing your last 3 days of spending...",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -4,8 +4,13 @@ import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction.dart';
 import '../presentation/providers/auth_provider.dart';
+import '../services/local_cache_service.dart';
+import '../data/models/profile_model.dart';
+import 'package:intl/intl.dart';
 import 'profile_screen.dart';
 import 'all_transactions_screen.dart';
+import 'notifications_screen.dart';
+import '../data/models/vault_model.dart';
 
 class DashboardScreen extends StatelessWidget {
   final Stream<List<ExpenseTransaction>> transactionsStream;
@@ -97,9 +102,9 @@ class DashboardScreen extends StatelessWidget {
                           const SizedBox(height: 20),
                           _buildInitialSetupInput(context),
                           const SizedBox(height: 15),
-                          _buildTopStatsRow(),
+                          _buildTopStatsRow(context, transactions),
                           const SizedBox(height: 15),
-                          _buildTotalBalanceCard(transactions),
+                          _buildTotalBalanceCard(context, transactions),
                           const SizedBox(height: 15),
                           _buildMonthlyOverviewCard(transactions, monthlyLimit),
                           const SizedBox(height: 20),
@@ -233,6 +238,7 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
+    final cacheService = context.read<LocalCacheService>();
     final profile = authProvider.profile;
     
     // SAFE ACCESS: Check if name exists before split/indexing
@@ -269,9 +275,36 @@ class DashboardScreen extends StatelessWidget {
           ),
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none, color: Colors.white),
-                onPressed: () {},
+              StreamBuilder<List<VaultModel>>(
+                stream: cacheService.watchVaults(),
+                builder: (context, snapshot) {
+                  final vaults = snapshot.data ?? [];
+                  final bool hasCompletedVault = vaults.any((v) => v.currentAmount >= v.targetAmount && v.targetAmount > 0);
+
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_none, color: Colors.white),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                          );
+                        },
+                      ),
+                      if (hasCompletedVault)
+                        Positioned(
+                          right: 12,
+                          top: 12,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                            constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
               GestureDetector(
                 onTap: () {
@@ -297,18 +330,192 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTopStatsRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildStatsCard('Out of Pocket', 'Mar 22nd', Icons.calendar_today, Colors.red[100]!),
-        _buildStatsCard('Savings', '24% ↑', Icons.trending_up, Colors.green[100]!),
-        _buildStatsCard('Pts', totalPoints.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},'), Icons.emoji_events_outlined, Colors.orange[100]!),
-      ],
+  Widget _buildTopStatsRow(BuildContext context, List<ExpenseTransaction> transactions) {
+    final authProvider = context.read<AuthProvider>();
+    final cacheService = context.read<LocalCacheService>();
+    final uid = authProvider.user?.uid;
+
+    if (uid == null) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildStatsCard('Broke Date', 'N/A', Icons.calendar_today, Colors.red[100]!),
+          _buildStatsCard('Savings', '₹0', Icons.trending_up, Colors.green[100]!),
+          _buildStatsCard('Pts', totalPoints.toString(), Icons.emoji_events_outlined, Colors.orange[100]!),
+        ],
+      );
+    }
+
+    return StreamBuilder<ProfileModel?>(
+      stream: cacheService.watchProfile(uid),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final double totalSavings = (profile?.totalLockedSavings ?? 0) + (profile?.totalVaultSavings ?? 0);
+        
+        // Calculate Fuel Tank for Prediction
+        final double totalInflowMinusOutflow = _calculateTotalBalance(transactions);
+        final double lockedSavings = profile?.totalLockedSavings ?? 0.0;
+        final double vaultSavings = profile?.totalVaultSavings ?? 0.0;
+        final bool isCrisisMode = profile?.isCrisisMode ?? false;
+        
+        final double currentAllowance = totalInflowMinusOutflow - lockedSavings - vaultSavings;
+        final double dailyLimit = profile?.dailyLimit ?? 1000.0;
+        final String brokeDate = _calculateBrokeDate(transactions, currentAllowance, isCrisisMode, lockedSavings, dailyLimit);
+        final Color brokeTextColor = (brokeDate == "BROKE" || brokeDate == "Today") ? Colors.red : primaryTeal;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildStatsCard('Broke Date', brokeDate, Icons.calendar_today, Colors.red[100]!, textColor: brokeTextColor),
+            GestureDetector(
+              onTap: () {
+                if (onSwitchTab != null) {
+                  onSwitchTab!(1); // Switch to Vault tab
+                }
+              },
+              child: _buildStatsCard('Savings', '₹${totalSavings.toStringAsFixed(0)}', Icons.trending_up, Colors.green[100]!),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ProfileScreen(
+                      totalPoints: totalPoints,
+                      onSwitchTab: onSwitchTab,
+                    ),
+                  ),
+                );
+              },
+              child: _buildStatsCard('Pts', totalPoints.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},'), Icons.emoji_events_outlined, Colors.orange[100]!),
+            ),
+          ],
+        );
+      }
     );
   }
 
-  Widget _buildStatsCard(String title, String value, IconData icon, Color iconBg) {
+  // --- BROKE DATE PREDICTOR (ROLLING + BURN HYBRID) ---
+
+  String _calculateBrokeDate(List<ExpenseTransaction> transactions, double allowance, bool isCrisis, double locked, double dailyLimit) {
+    if (transactions.isEmpty) return "Safe";
+
+    // Fuel Tank
+    double fuel = allowance;
+    if (isCrisis) fuel += locked;
+
+    if (fuel <= 0) return "BROKE";
+
+    final now = DateTime.now();
+
+    // 1. Rolling Burn (Last 7 days)
+    Map<int, double> dailyNetOutflow = {};
+    for (int i = 0; i < 7; i++) dailyNetOutflow[i] = 0.0;
+
+    for (var tx in transactions) {
+      final diff = now.difference(tx.date).inDays;
+      if (diff >= 0 && diff < 7) {
+        if (tx.isExpense) {
+          dailyNetOutflow[diff] = (dailyNetOutflow[diff] ?? 0) + tx.amount;
+        } else {
+          dailyNetOutflow[diff] = (dailyNetOutflow[diff] ?? 0) - tx.amount;
+        }
+      }
+    }
+
+    double burnRate = dailyNetOutflow.values.reduce((a, b) => a + b) / 7;
+
+    // FALLBACK: If burn rate is exceptionally low or 0, use a percentage of the daily limit
+    if (burnRate < (dailyLimit * 0.1)) {
+      burnRate = dailyLimit * 0.3; // Assume 30% of limit as baseline burn
+    }
+
+    double daysBurn = fuel / burnRate;
+
+    // 2. Linear Regression (Last 10 Days Balance Trend)
+    List<double> balances = [];
+    List<double> indices = [];
+    double runningFuel = fuel;
+
+    for (int i = 0; i < 10; i++) {
+      indices.add(i.toDouble());
+      balances.add(runningFuel);
+
+      double dayNet = 0;
+      for (var tx in transactions) {
+        if (now.difference(tx.date).inDays == i) {
+          dayNet += tx.isExpense ? -tx.amount : tx.amount;
+        }
+      }
+      runningFuel -= dayNet; // Reverse to find previous balance
+    }
+
+    // Reverse to get 0 as 10 days ago, 9 as today
+    List<double> x = List.generate(10, (i) => i.toDouble());
+    List<double> y = balances.reversed.toList();
+
+    double slope = _computeSlope(x, y);
+    double intercept = _computeIntercept(x, y, slope);
+
+    double daysReg = double.infinity;
+    if (slope < 0) {
+      double tBroke = -intercept / slope;
+      daysReg = tBroke - 9; // Relative to today (index 9)
+    }
+
+    // 3. Hybrid Calculation
+    double finalDays;
+    if (daysBurn.isFinite && daysReg.isFinite) {
+      // If both are positive, we take the weighted average.
+      // If one is negative (growing), we prioritize the one that predicts a "broke" state.
+      if (daysBurn > 0 && daysReg > 0) {
+        finalDays = 0.6 * daysBurn + 0.4 * daysReg;
+      } else if (daysBurn > 0) {
+        finalDays = daysBurn;
+      } else if (daysReg > 0) {
+        finalDays = daysReg;
+      } else {
+        return "Growing"; // Both trends show increasing balance
+      }
+    } else if (daysBurn.isFinite && daysBurn > 0) {
+      finalDays = daysBurn;
+    } else if (daysReg.isFinite && daysReg > 0) {
+      finalDays = daysReg;
+    } else {
+      return "Safe";
+    }
+
+    if (finalDays <= 0) return "Today";
+    if (finalDays > 3650) return "Safe (>10y)"; // Cap at 10 years
+
+    final predictedDate = now.add(Duration(days: finalDays.toInt()));
+
+    if (finalDays > 365) {
+      return DateFormat('MMM yyyy').format(predictedDate); // e.g., "Jan 2026"
+    }
+    return DateFormat('MMM d').format(predictedDate); // e.g., "Nov 15"
+  }
+
+  double _computeSlope(List<double> x, List<double> y) {
+    int n = x.length;
+    double sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (int i = 0; i < n; i++) {
+      sumX += x[i];
+      sumY += y[i];
+      sumXY += x[i] * y[i];
+      sumXX += x[i] * x[i];
+    }
+    double den = n * sumXX - sumX * sumX;
+    return den == 0 ? 0 : (n * sumXY - sumX * sumY) / den;
+  }
+
+  double _computeIntercept(List<double> x, List<double> y, double slope) {
+    double sumX = x.reduce((a, b) => a + b);
+    double sumY = y.reduce((a, b) => a + b);
+    return (sumY - slope * sumX) / x.length;
+  }
+
+  Widget _buildStatsCard(String title, String value, IconData icon, Color iconBg, {Color textColor = primaryTeal}) {
     return Container(
       width: 105,
       padding: const EdgeInsets.all(12),
@@ -322,64 +529,97 @@ class DashboardScreen extends StatelessWidget {
           CircleAvatar(radius: 18, backgroundColor: iconBg, child: Icon(icon, size: 18, color: Colors.black87)),
           const SizedBox(height: 10),
           Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryTeal)),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
         ],
       ),
     );
   }
 
-  Widget _buildTotalBalanceCard(List<ExpenseTransaction> transactions) {
-    final double totalBalance = _calculateTotalBalance(transactions);
-    final Color balanceColor = totalBalance >= 0 ? primaryTeal : Colors.redAccent;
+  Widget _buildTotalBalanceCard(BuildContext context, List<ExpenseTransaction> transactions) {
+    final authProvider = context.read<AuthProvider>();
+    final cacheService = context.read<LocalCacheService>();
+    final uid = authProvider.user?.uid;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: accentTeal.withOpacity(0.2),
-            child: const Icon(Icons.account_balance_wallet_outlined, color: primaryTeal, size: 28),
+    if (uid == null) return const SizedBox.shrink();
+
+    return StreamBuilder<ProfileModel?>(
+      stream: cacheService.watchProfile(uid),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final double totalInflowMinusOutflow = _calculateTotalBalance(transactions);
+        
+        // Deduction logic: currentAllowance = Total - LockedSavings - VaultSavings
+        final double lockedSavings = profile?.totalLockedSavings ?? 0.0;
+        final double vaultSavings = profile?.totalVaultSavings ?? 0.0;
+        final bool isCrisisMode = profile?.isCrisisMode ?? false;
+
+        // Formula: Always show Allowance. 
+        final double currentAllowance = totalInflowMinusOutflow - lockedSavings - vaultSavings;
+        
+        final Color balanceColor = currentAllowance >= 0 ? (isCrisisMode ? Colors.orange : primaryTeal) : Colors.redAccent;
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(25),
+            border: isCrisisMode ? Border.all(color: Colors.orange, width: 2) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              )
+            ],
           ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Total Balance",
-                  style: TextStyle(
-                    color: Colors.blueGrey[400],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 25,
+                backgroundColor: (isCrisisMode ? Colors.orange : accentTeal).withOpacity(0.2),
+                child: Icon(
+                  isCrisisMode ? Icons.emergency_outlined : Icons.account_balance_wallet_outlined, 
+                  color: isCrisisMode ? Colors.orange : primaryTeal, 
+                  size: 28
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  "₹${totalBalance.toStringAsFixed(2)}",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: balanceColor,
-                  ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          isCrisisMode ? "CRISIS ALLOWANCE" : "Current Allowance",
+                          style: TextStyle(
+                            color: isCrisisMode ? Colors.orange : Colors.blueGrey[400],
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (isCrisisMode) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
+                        ]
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "₹${currentAllowance.toStringAsFixed(2)}",
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        color: balanceColor,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const Icon(Icons.chevron_right, color: Colors.grey),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -1,15 +1,20 @@
 import sys
 import os
-import pandas as pd
+from pathlib import Path
+import json
+import statistics
+from datetime import datetime
+from firebase_admin import firestore
 from google import genai
 from dotenv import load_dotenv
-import json
 
-# Add root to path BEFORE importing local modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from firebase_admin import firestore
-from services.firebase_service import get_db, initialize_firebase
+# Now import from the services package
+try:
+    from services.firebase_service import get_db, initialize_firebase
+except ImportError:
+    # Fallback for different execution contexts
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from services.firebase_service import get_db, initialize_firebase
 
 # Load environment variables robustly
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,13 +51,11 @@ def get_ai_summaries(health_score, top_categories, anomalies):
     """
     
     try:
-        # Reverting to the most stable 1.5-flash with highest free quota
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=prompt
         )
         text = response.text.strip()
-        # Handle cases where Gemini wraps JSON in markdown
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0].strip()
         elif "```" in text:
@@ -77,23 +80,22 @@ def get_user_transactions(user_id):
     db = get_db()
     docs = db.collection("transactions").where(filter=firestore.FieldFilter("userId", "==", user_id)).stream()
     
-    data = []
+    transactions = []
     for doc in docs:
         d = doc.to_dict()
         d['id'] = doc.id
+        # Convert date to string if it's a timestamp
         if 'date' in d and hasattr(d['date'], 'isoformat'):
             d['date'] = d['date'].isoformat()
-        data.append(d)
-        
-    return pd.DataFrame(data)
+        transactions.append(d)
+    return transactions
 
 def calculate_insights(user_id):
-    df = get_user_transactions(user_id)
+    transactions = get_user_transactions(user_id)
     
-    if df.empty:
+    if not transactions:
         return {"message": "No data found for user"}
 
-    # --- CATEGORY MAPPING ---
     CATEGORY_MAP = {
         "Zomato": "Food & Dining", "Swiggy": "Food & Dining", "Starbucks": "Food & Dining",
         "Amazon": "Shopping", "Flipkart": "Shopping", "Uber": "Transport", "Ola": "Transport",
@@ -105,36 +107,53 @@ def calculate_insights(user_id):
             if key.lower() in title.lower(): return val
         return "Other"
 
-    df['mapped_category'] = df['title'].apply(map_category)
-    expenses = df[df['isExpense'] == True]
-    total_spent = expenses['amount'].sum()
-    category_totals = expenses.groupby('mapped_category')['amount'].sum().sort_values(ascending=False)
+    # Aggregations using native Python
+    expenses = [t for t in transactions if t.get('isExpense') == True]
+    income_list = [t for t in transactions if t.get('isExpense') == False]
+    
+    total_spent = sum(t.get('amount', 0) for t in expenses)
+    total_income = sum(t.get('amount', 0) for t in income_list)
+
+    # Category totals
+    category_totals = {}
+    for t in expenses:
+        cat = map_category(t.get('title', ''))
+        category_totals[cat] = category_totals.get(cat, 0) + t.get('amount', 0)
     
     top_categories = []
     for category, amount in category_totals.items():
         percentage = (amount / total_spent) * 100 if total_spent > 0 else 0
         top_categories.append({"category": category, "amount": float(amount), "percentage": round(percentage, 2)})
 
-    income = df[df['isExpense'] == False]['amount'].sum()
-    savings_rate = (income - total_spent) / income if income > 0 else 0
+    savings_rate = (total_income - total_spent) / total_income if total_income > 0 else 0
     health_score = max(0, min(100, int(savings_rate * 100)))
 
+    # Anomaly detection using statistics module
     anomalies = []
-    if not expenses.empty and expenses['amount'].std() > 0:
-        threshold = expenses['amount'].mean() + (2 * expenses['amount'].std())
-        outliers = expenses[expenses['amount'] > threshold]
-        for _, row in outliers.iterrows():
-            anomalies.append({"title": row['title'], "amount": row['amount'], "date": row['date']})
+    expense_amounts = [t.get('amount', 0) for t in expenses]
+    if len(expense_amounts) > 1:
+        mean_val = statistics.mean(expense_amounts)
+        std_dev = statistics.stdev(expense_amounts)
+        threshold = mean_val + (2 * std_dev)
+        
+        for t in expenses:
+            if t.get('amount', 0) > threshold:
+                anomalies.append({"title": t.get('title'), "amount": t.get('amount'), "date": t.get('date')})
 
     db = get_db()
     audit_doc = db.collection("audits").document(user_id).get()
     physical_cash_reported = audit_doc.to_dict().get('cash_on_hand', 0) if audit_doc.exists else 0
-    expected_balance = income - total_spent
+    expected_balance = total_income - total_spent
     leakage = max(0, expected_balance - physical_cash_reported)
     
     if leakage > 0:
-        top_categories.append({"category": "Unaccounted (Cash)", "amount": float(leakage), "percentage": round((leakage / income) * 100, 2) if income > 0 else 0})
-        health_score = max(0, health_score - int((leakage / income) * 50)) if income > 0 else health_score
+        top_categories.append({
+            "category": "Unaccounted (Cash)", 
+            "amount": float(leakage), 
+            "percentage": round((leakage / total_income) * 100, 2) if total_income > 0 else 0
+        })
+        if total_income > 0:
+            health_score = max(0, health_score - int((leakage / total_income) * 50))
 
     feed_summaries = get_ai_summaries(health_score, top_categories, anomalies)
 
@@ -145,7 +164,7 @@ def calculate_insights(user_id):
         "anomalies": anomalies,
         "feed_summaries": feed_summaries,
         "physical_cash_balance": float(physical_cash_reported),
-        "lastUpdated": pd.Timestamp.now()
+        "lastUpdated": datetime.now()
     }
 
 def push_insights_to_firestore(user_id):
@@ -156,8 +175,23 @@ def push_insights_to_firestore(user_id):
     print(f"Successfully pushed insights for user {user_id}")
 
 if __name__ == "__main__":
-    db = initialize_firebase()
-    from scripts.data_generator import get_all_recent_users
-    active_users = get_all_recent_users(db, limit=1)
-    for user_id in active_users:
-        push_insights_to_firestore(user_id)
+    try:
+        db = get_db()
+    except Exception:
+        db = initialize_firebase()
+    
+    print("Searching for active users...")
+    docs = db.collection("transactions").limit(50).stream()
+    active_users = set()
+    for doc in docs:
+        uid = doc.to_dict().get("userId")
+        if uid: active_users.add(uid)
+    
+    if not active_users:
+        print("No active users found.")
+    else:
+        for user_id in active_users:
+            try:
+                push_insights_to_firestore(user_id)
+            except Exception as e:
+                print(f"Error processing user {user_id}: {e}")

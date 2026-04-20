@@ -72,58 +72,68 @@ const ProfileModelSchema = CollectionSchema(
       name: r'hasSeenInitialSync',
       type: IsarType.bool,
     ),
-    r'lastQuizDate': PropertySchema(
+    r'isCrisisMode': PropertySchema(
       id: 11,
+      name: r'isCrisisMode',
+      type: IsarType.bool,
+    ),
+    r'lastQuizDate': PropertySchema(
+      id: 12,
       name: r'lastQuizDate',
       type: IsarType.string,
     ),
     r'lifetimePoints': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'lifetimePoints',
       type: IsarType.long,
     ),
     r'monthlyLimit': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'monthlyLimit',
       type: IsarType.double,
     ),
     r'name': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'name',
       type: IsarType.string,
     ),
     r'phoneNo': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'phoneNo',
       type: IsarType.string,
     ),
     r'qualification': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'qualification',
       type: IsarType.string,
     ),
     r'quizStatus': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'quizStatus',
       type: IsarType.string,
     ),
     r'smsTrackingEnabled': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'smsTrackingEnabled',
       type: IsarType.bool,
     ),
     r'totalLockedSavings': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'totalLockedSavings',
       type: IsarType.double,
     ),
+    r'totalVaultSavings': PropertySchema(
+      id: 21,
+      name: r'totalVaultSavings',
+      type: IsarType.double,
+    ),
     r'uid': PropertySchema(
-      id: 20,
+      id: 22,
       name: r'uid',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 21,
+      id: 23,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -206,17 +216,19 @@ void _profileModelSerialize(
   writer.writeString(offsets[8], object.financialDetails);
   writer.writeString(offsets[9], object.gender);
   writer.writeBool(offsets[10], object.hasSeenInitialSync);
-  writer.writeString(offsets[11], object.lastQuizDate);
-  writer.writeLong(offsets[12], object.lifetimePoints);
-  writer.writeDouble(offsets[13], object.monthlyLimit);
-  writer.writeString(offsets[14], object.name);
-  writer.writeString(offsets[15], object.phoneNo);
-  writer.writeString(offsets[16], object.qualification);
-  writer.writeString(offsets[17], object.quizStatus);
-  writer.writeBool(offsets[18], object.smsTrackingEnabled);
-  writer.writeDouble(offsets[19], object.totalLockedSavings);
-  writer.writeString(offsets[20], object.uid);
-  writer.writeDateTime(offsets[21], object.updatedAt);
+  writer.writeBool(offsets[11], object.isCrisisMode);
+  writer.writeString(offsets[12], object.lastQuizDate);
+  writer.writeLong(offsets[13], object.lifetimePoints);
+  writer.writeDouble(offsets[14], object.monthlyLimit);
+  writer.writeString(offsets[15], object.name);
+  writer.writeString(offsets[16], object.phoneNo);
+  writer.writeString(offsets[17], object.qualification);
+  writer.writeString(offsets[18], object.quizStatus);
+  writer.writeBool(offsets[19], object.smsTrackingEnabled);
+  writer.writeDouble(offsets[20], object.totalLockedSavings);
+  writer.writeDouble(offsets[21], object.totalVaultSavings);
+  writer.writeString(offsets[22], object.uid);
+  writer.writeDateTime(offsets[23], object.updatedAt);
 }
 
 ProfileModel _profileModelDeserialize(
@@ -237,17 +249,19 @@ ProfileModel _profileModelDeserialize(
     financialDetails: reader.readString(offsets[8]),
     gender: reader.readString(offsets[9]),
     hasSeenInitialSync: reader.readBoolOrNull(offsets[10]) ?? false,
-    lastQuizDate: reader.readStringOrNull(offsets[11]),
-    lifetimePoints: reader.readLongOrNull(offsets[12]) ?? 0,
-    monthlyLimit: reader.readDoubleOrNull(offsets[13]) ?? 30000.0,
-    name: reader.readString(offsets[14]),
-    phoneNo: reader.readStringOrNull(offsets[15]),
-    qualification: reader.readString(offsets[16]),
-    quizStatus: reader.readStringOrNull(offsets[17]) ?? "new",
-    smsTrackingEnabled: reader.readBoolOrNull(offsets[18]) ?? true,
-    totalLockedSavings: reader.readDoubleOrNull(offsets[19]) ?? 0.0,
-    uid: reader.readString(offsets[20]),
-    updatedAt: reader.readDateTime(offsets[21]),
+    isCrisisMode: reader.readBoolOrNull(offsets[11]) ?? false,
+    lastQuizDate: reader.readStringOrNull(offsets[12]),
+    lifetimePoints: reader.readLongOrNull(offsets[13]) ?? 0,
+    monthlyLimit: reader.readDoubleOrNull(offsets[14]) ?? 30000.0,
+    name: reader.readString(offsets[15]),
+    phoneNo: reader.readStringOrNull(offsets[16]),
+    qualification: reader.readString(offsets[17]),
+    quizStatus: reader.readStringOrNull(offsets[18]) ?? "new",
+    smsTrackingEnabled: reader.readBoolOrNull(offsets[19]) ?? true,
+    totalLockedSavings: reader.readDoubleOrNull(offsets[20]) ?? 0.0,
+    totalVaultSavings: reader.readDoubleOrNull(offsets[21]) ?? 0.0,
+    uid: reader.readString(offsets[22]),
+    updatedAt: reader.readDateTime(offsets[23]),
   );
   object.id = id;
   return object;
@@ -283,26 +297,30 @@ P _profileModelDeserializeProp<P>(
     case 10:
       return (reader.readBoolOrNull(offset) ?? false) as P;
     case 11:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset) ?? false) as P;
     case 12:
-      return (reader.readLongOrNull(offset) ?? 0) as P;
-    case 13:
-      return (reader.readDoubleOrNull(offset) ?? 30000.0) as P;
-    case 14:
-      return (reader.readString(offset)) as P;
-    case 15:
       return (reader.readStringOrNull(offset)) as P;
+    case 13:
+      return (reader.readLongOrNull(offset) ?? 0) as P;
+    case 14:
+      return (reader.readDoubleOrNull(offset) ?? 30000.0) as P;
+    case 15:
+      return (reader.readString(offset)) as P;
     case 16:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 17:
-      return (reader.readStringOrNull(offset) ?? "new") as P;
-    case 18:
-      return (reader.readBoolOrNull(offset) ?? true) as P;
-    case 19:
-      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
-    case 20:
       return (reader.readString(offset)) as P;
+    case 18:
+      return (reader.readStringOrNull(offset) ?? "new") as P;
+    case 19:
+      return (reader.readBoolOrNull(offset) ?? true) as P;
+    case 20:
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
     case 21:
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
+    case 22:
+      return (reader.readString(offset)) as P;
+    case 23:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1344,6 +1362,16 @@ extension ProfileModelQueryFilter
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      isCrisisModeEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isCrisisMode',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
       lastQuizDateIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2255,6 +2283,72 @@ extension ProfileModelQueryFilter
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalVaultSavingsEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'totalVaultSavings',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalVaultSavingsGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'totalVaultSavings',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalVaultSavingsLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'totalVaultSavings',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      totalVaultSavingsBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'totalVaultSavings',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition> uidEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2597,6 +2691,19 @@ extension ProfileModelQuerySortBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByIsCrisisMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCrisisMode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByIsCrisisModeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCrisisMode', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByLastQuizDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastQuizDate', Sort.asc);
@@ -2712,6 +2819,20 @@ extension ProfileModelQuerySortBy
       sortByTotalLockedSavingsDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'totalLockedSavings', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByTotalVaultSavings() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalVaultSavings', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByTotalVaultSavingsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalVaultSavings', Sort.desc);
     });
   }
 
@@ -2899,6 +3020,19 @@ extension ProfileModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByIsCrisisMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCrisisMode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByIsCrisisModeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isCrisisMode', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByLastQuizDate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'lastQuizDate', Sort.asc);
@@ -3017,6 +3151,20 @@ extension ProfileModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByTotalVaultSavings() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalVaultSavings', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByTotalVaultSavingsDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'totalVaultSavings', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByUid() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'uid', Sort.asc);
@@ -3119,6 +3267,12 @@ extension ProfileModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByIsCrisisMode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isCrisisMode');
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByLastQuizDate(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -3179,6 +3333,13 @@ extension ProfileModelQueryWhereDistinct
       distinctByTotalLockedSavings() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'totalLockedSavings');
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctByTotalVaultSavings() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'totalVaultSavings');
     });
   }
 
@@ -3274,6 +3435,12 @@ extension ProfileModelQueryProperty
     });
   }
 
+  QueryBuilder<ProfileModel, bool, QQueryOperations> isCrisisModeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isCrisisMode');
+    });
+  }
+
   QueryBuilder<ProfileModel, String?, QQueryOperations> lastQuizDateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastQuizDate');
@@ -3327,6 +3494,13 @@ extension ProfileModelQueryProperty
       totalLockedSavingsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'totalLockedSavings');
+    });
+  }
+
+  QueryBuilder<ProfileModel, double, QQueryOperations>
+      totalVaultSavingsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'totalVaultSavings');
     });
   }
 

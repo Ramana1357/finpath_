@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
+import '../models/transaction.dart';
 import 'profile_screen.dart';
 
 // --- DATA MODEL (Ready for Backend Integration) ---
 import '../data/models/vault_model.dart';
+import '../data/models/profile_model.dart';
 import '../services/local_cache_service.dart';
 
 class DreamVaultModel {
@@ -45,54 +47,60 @@ class _VaultScreenState extends State<VaultScreen> {
     final authProvider = context.watch<AuthProvider>();
     final profile = authProvider.profile;
     
-    final double totalLockedSavings = profile?.totalLockedSavings ?? 0.0;
-    final int emergencyPercent = profile?.emergencyPercent ?? 20;
-    final int userLevel = (profile?.lifetimePoints ?? 0) ~/ 500 + 1;
-    final String userLevelName = userLevel > 5 ? "FinMaster" : "Novice Saver";
-    final double levelProgress = ((profile?.lifetimePoints ?? 0) % 500) / 500;
-    
     final cacheService = context.read<LocalCacheService>();
+    final uid = authProvider.user?.uid;
 
     return Scaffold(
       backgroundColor: _backgroundGray,
       body: SafeArea(
-        child: StreamBuilder<List<VaultModel>>(
-          stream: cacheService.watchVaults(),
-          builder: (context, snapshot) {
-            final vaults = snapshot.data ?? [];
+        child: StreamBuilder<ProfileModel?>(
+          stream: uid != null ? cacheService.watchProfile(uid) : Stream.value(null),
+          builder: (context, profileSnapshot) {
+            final profile = profileSnapshot.data;
+            final double totalLockedSavings = profile?.totalLockedSavings ?? 0.0;
+            final int emergencyPercent = profile?.emergencyPercent ?? 20;
+            final int userLevel = (profile?.lifetimePoints ?? 0) ~/ 500 + 1;
+            final String userLevelName = userLevel > 5 ? "FinMaster" : "Novice Saver";
+            final double levelProgress = ((profile?.lifetimePoints ?? 0) % 500) / 500;
+            final bool isCrisisMode = profile?.isCrisisMode ?? false;
 
-            return SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildAppBar(context),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildTotalSavingsCard(totalLockedSavings, emergencyPercent),
-                        const SizedBox(height: 20),
-                        _buildGamificationCard(userLevel, userLevelName, levelProgress),
-                        const SizedBox(height: 25),
-                        const Text(
-                          "My Dream Vaults",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _primaryTeal,
-                          ),
+            return StreamBuilder<List<VaultModel>>(
+              stream: cacheService.watchVaults(),
+              builder: (context, snapshot) {
+                final vaults = snapshot.data ?? [];
+
+                return SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildAppBar(context),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildTotalSavingsCard(totalLockedSavings, emergencyPercent),
+                            const SizedBox(height: 20),
+                            _buildGamificationCard(userLevel, userLevelName, levelProgress),
+                            const SizedBox(height: 25),
+                            const Text(
+                              "My Dream Vaults",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: _primaryTeal,
+                              ),
+                            ),
+                            const SizedBox(height: 15),
+                            _buildVaultList(vaults),
+                            const SizedBox(height: 80),
+                          ],
                         ),
-                        const SizedBox(height: 15),
-                        _buildVaultList(vaults),
-                        const SizedBox(height: 20),
-                        _buildCrisisModeCard(),
-                        const SizedBox(height: 80),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              }
             );
           }
         ),
@@ -106,6 +114,90 @@ class _VaultScreenState extends State<VaultScreen> {
   }
 
   // --- WIDGET COMPONENTS ---
+
+  void _showEditVaultDialog(BuildContext context, VaultModel vault) {
+    final titleController = TextEditingController(text: vault.title);
+    final targetController = TextEditingController(text: vault.targetAmount.toString());
+    final allocationController = TextEditingController(text: vault.allocationPercent.toString());
+    final cacheService = context.read<LocalCacheService>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Vault"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: "Goal Title"),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: targetController,
+                decoration: const InputDecoration(labelText: "Target Amount (₹)"),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: allocationController,
+                decoration: const InputDecoration(
+                  labelText: "Allocation Share (%)",
+                  helperText: "Percentage of your 30% savings pot",
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Delete Vault?"),
+                  content: const Text("This will permanently remove this vault and its history."),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Delete", style: TextStyle(color: Colors.red))),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                await cacheService.deleteVault(vault.id);
+                if (context.mounted) {
+                  Navigator.pop(context); // Close edit dialog
+                }
+              }
+            },
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (titleController.text.isNotEmpty && targetController.text.isNotEmpty) {
+                final updatedVault = vault.copyWith(
+                  title: titleController.text,
+                  targetAmount: double.parse(targetController.text),
+                  allocationPercent: double.tryParse(allocationController.text) ?? 0.0,
+                  updatedAt: DateTime.now(),
+                );
+                await cacheService.saveVault(updatedVault);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
+            child: const Text("Save Changes", style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
+  }
 
   void _showAddVaultDialog(BuildContext context) {
     final titleController = TextEditingController();
@@ -369,30 +461,41 @@ class _VaultScreenState extends State<VaultScreen> {
       itemCount: vaults.length,
       itemBuilder: (context, index) {
         final vault = vaults[index];
+        final bool isCompleted = vault.currentAmount >= vault.targetAmount;
+
         return Container(
           margin: const EdgeInsets.only(bottom: 15),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(25),
+            border: isCompleted ? Border.all(color: _progressGreen, width: 2) : null,
           ),
           child: Column(
             children: [
               Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     backgroundColor: _backgroundGray,
-                    child: Icon(Icons.stars, color: _primaryTeal, size: 20),
+                    child: Icon(
+                      isCompleted ? Icons.check_circle : Icons.stars, 
+                      color: isCompleted ? _progressGreen : _primaryTeal, 
+                      size: 20
+                    ),
                   ),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          vault.title,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                        Row(
+                          children: [
+                            Text(
+                              vault.title,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ],
                         ),
                         Text(
                           "Share: ${vault.allocationPercent.toInt()}% | ₹${vault.currentAmount.toInt()} / ₹${vault.targetAmount.toInt()}",
@@ -409,6 +512,19 @@ class _VaultScreenState extends State<VaultScreen> {
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    icon: Icon(
+                      isCompleted ? Icons.delete_outline : Icons.edit_outlined, 
+                      size: 20, 
+                      color: isCompleted ? Colors.red : Colors.grey
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => isCompleted 
+                        ? _confirmClaimVault(context, vault)
+                        : _showEditVaultDialog(context, vault),
                   ),
                 ],
               ),
@@ -427,56 +543,27 @@ class _VaultScreenState extends State<VaultScreen> {
     );
   }
 
-  Widget _buildCrisisModeCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: _backgroundGray,
-            child: Icon(
-              Icons.shield_outlined,
-              color: _isCrisisModeActive ? Colors.red : Colors.grey,
-            ),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Crisis Mode Setup",
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: _primaryTeal),
-                ),
-                Text(
-                  _isCrisisModeActive
-                      ? "Crisis Mode ACTIVE"
-                      : "Currently Safe (Inactive)",
-                  style: TextStyle(
-                    color: _isCrisisModeActive ? Colors.red : Colors.grey[600],
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: _isCrisisModeActive,
-            onChanged: (val) {
-              setState(() {
-                _isCrisisModeActive = val;
-              });
+  void _confirmClaimVault(BuildContext context, VaultModel vault) {
+    final cacheService = context.read<LocalCacheService>();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Claim Goal?"),
+        content: Text("You've reached your goal for '${vault.title}'! Claiming it will remove it from your list."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Not Yet")),
+          ElevatedButton(
+            onPressed: () async {
+              await cacheService.deleteVault(vault.id);
+              if (context.mounted) Navigator.pop(context);
             },
-            activeColor: Colors.red,
+            style: ElevatedButton.styleFrom(backgroundColor: _progressGreen),
+            child: const Text("Claim & Remove", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
+
+
 }

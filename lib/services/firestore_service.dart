@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/auth_user_model.dart';
 import '../data/models/profile_model.dart';
-import '../data/models/user_lifetime_log_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -30,11 +29,6 @@ class FirestoreService {
       return ProfileModel.fromMap(doc.data()!);
     }
     return null;
-  }
-
-  // Logs
-  Future<void> saveLog(UserLifetimeLogModel log) async {
-    await _db.collection('user_lifetime_logs').doc(log.logId).set(log.toMap());
   }
 
   // Check if profile exists

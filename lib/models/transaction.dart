@@ -1,5 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Index, Query, Type;
 
 
 // This line tells Isar to generate the background code for this file
@@ -28,4 +29,28 @@ class ExpenseTransaction {
     this.category = 'General',
     this.smsRawText,
   }) : txId = txId ?? const Uuid().v4();
+
+  factory ExpenseTransaction.fromFirestore(Map<String, dynamic> map) {
+    return ExpenseTransaction(
+      txId: map['txId'] as String?,
+      title: map['title'] ?? '',
+      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
+      date: (map['date'] as Timestamp).toDate(),
+      isExpense: map['isExpense'] ?? true,
+      category: map['category'] ?? 'General',
+      smsRawText: map['smsRawText'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'txId': txId,
+      'title': title,
+      'amount': amount,
+      'date': Timestamp.fromDate(date),
+      'isExpense': isExpense,
+      'category': category,
+      'smsRawText': smsRawText,
+    };
+  }
 }

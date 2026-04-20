@@ -4,7 +4,6 @@ import '../presentation/providers/auth_provider.dart';
 import '../models/transaction.dart';
 import '../services/local_cache_service.dart';
 import '../services/cloud_service.dart';
-import '../models/cloud_insight.dart';
 import 'profile_screen.dart';
 import 'dart:math';
 
@@ -144,15 +143,17 @@ class _InsightsScreenState extends State<InsightsScreen> {
                         const SizedBox(height: 25),
                         _buildRealtimeCategories(localStats['categories'] as List),
                         const SizedBox(height: 25),
-                        StreamBuilder<CloudInsight?>(
+                        StreamBuilder<Map<String, dynamic>?>(
                           stream: _cloudService.getInsightsStream(),
                           builder: (context, cloudSnapshot) {
                             final insight = cloudSnapshot.data;
                             if (insight == null) return const SizedBox.shrink();
                             
+                            final anomalies = insight['anomalies'] as List? ?? [];
+
                             return Column(
                               children: [
-                                if (insight.anomalies.isNotEmpty) ...[
+                                if (anomalies.isNotEmpty) ...[
                                   _buildAnomaliesCard(insight),
                                   const SizedBox(height: 25),
                                 ],
@@ -390,7 +391,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
-  Widget _buildAnomaliesCard(CloudInsight insight) {
+  Widget _buildAnomaliesCard(Map<String, dynamic> insight) {
+    final anomalies = insight['anomalies'] as List? ?? [];
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
@@ -409,10 +411,10 @@ class _InsightsScreenState extends State<InsightsScreen> {
             ],
           ),
           const SizedBox(height: 15),
-          ...insight.anomalies.map((a) => Padding(
+          ...anomalies.map((a) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Text(
-              "• High transaction: ₹${a.amount.toInt()} at ${a.title} on ${a.date}",
+              "• High transaction: ₹${a['amount'].toInt()} at ${a['title']} on ${a['date']}",
               style: const TextStyle(fontSize: 13, color: Colors.redAccent),
             ),
           )),
@@ -464,7 +466,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
     );
   }
 
-  Widget _buildEndOfWeekCheckCard(CloudInsight insight) {
+  Widget _buildEndOfWeekCheckCard(Map<String, dynamic> insight) {
+    final physicalCashBalance = insight['physical_cash_balance'] ?? 0.0;
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
@@ -490,8 +493,8 @@ class _InsightsScreenState extends State<InsightsScreen> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      insight.physicalCashBalance > 0 
-                        ? "Last reported cash: ₹${insight.physicalCashBalance.toInt()}"
+                      physicalCashBalance > 0 
+                        ? "Last reported cash: ₹${physicalCashBalance.toInt()}"
                         : "Let's reconcile: How much physical cash do you actually have right now?",
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
