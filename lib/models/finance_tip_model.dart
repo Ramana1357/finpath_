@@ -24,7 +24,7 @@ class FinanceTipModel {
       title: map['title'] as String? ?? '',
       source: map['source'] as String? ?? '',
       content: map['content'] as String? ?? '',
-      imageUrl: map['image_url'] as String? ?? '',
+      imageUrl: (map['image_url'] ?? map['imageUrl']) as String? ?? '',
       timestamp: DateTime.fromMillisecondsSinceEpoch(
         (map['timestamp'] as int? ?? 0) * 1000,
       ),

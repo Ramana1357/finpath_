@@ -128,6 +128,15 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    _setLoading(true);
+    try {
+      await _userRepository.sendPasswordResetEmail(email);
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<bool> verifyPassword(String password) async {
     _setLoading(true);
     try {
@@ -149,7 +158,7 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     if (_user != null) {
       _setLoading(true);
       try {
-        await _userRepository.restoreTransactions(_user!.uid);
+        await _userRepository.restoreUserData(_user!.uid);
         await _loadProfile(_user!.uid);
       } finally {
         _setLoading(false);

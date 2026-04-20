@@ -1,4 +1,5 @@
 import 'package:isar/isar.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Index, Type, Query;
 
 part 'vault_model.g.dart';
 
@@ -46,6 +47,32 @@ class VaultModel {
       updatedAt: updatedAt ?? this.updatedAt,
     );
     v.id = id ?? this.id;
+    return v;
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'iconName': iconName,
+      'currentAmount': currentAmount,
+      'targetAmount': targetAmount,
+      'allocationPercent': allocationPercent,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+    };
+  }
+
+  factory VaultModel.fromMap(Map<String, dynamic> map, {int? id}) {
+    final v = VaultModel(
+      title: map['title'] ?? '',
+      iconName: map['iconName'] ?? '',
+      currentAmount: (map['currentAmount'] as num?)?.toDouble() ?? 0.0,
+      targetAmount: (map['targetAmount'] as num?)?.toDouble() ?? 0.0,
+      allocationPercent: (map['allocationPercent'] as num?)?.toDouble() ?? 0.0,
+      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
+    );
+    if (id != null) v.id = id;
     return v;
   }
 }

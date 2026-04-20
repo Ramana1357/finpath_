@@ -28,7 +28,38 @@ class BiometricAuthScreen extends StatelessWidget {
               child: const Text('Authenticate'),
             ),
             TextButton(
-              onPressed: () => authProvider.logout(),
+              onPressed: () async {
+                final result = await showDialog<int>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text("Log Out"),
+                    content: const Text(
+                      "the data regarding to dream vault and savings will be deleted permanently and the money will be allocated to total balance. "
+                      "choose backup and logout incase of short term logout.else you can either choose to just logout or backup and logout",
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, 0), // Cancel
+                        child: const Text("Cancel"),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, 1), // Logout No Backup
+                        child: const Text("Just Logout", style: TextStyle(color: Colors.grey)),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, 2), // Logout With Backup
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                        child: const Text("Backup & Logout", style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (result != null && result > 0) {
+                  final bool shouldBackup = (result == 2);
+                  await authProvider.logout(shouldBackup: shouldBackup);
+                }
+              },
               child: const Text('Logout'),
             ),
           ],

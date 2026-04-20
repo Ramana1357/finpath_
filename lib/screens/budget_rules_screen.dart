@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../data/models/profile_model.dart';
+import 'package:flutter/services.dart';
+import 'dart:io';
 
 class BudgetRulesScreen extends StatefulWidget {
   const BudgetRulesScreen({super.key});
@@ -104,10 +106,29 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
                         );
                         await authProvider.saveProfile(updatedProfile);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Budget rules saved successfully!")),
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (context) => AlertDialog(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              title: const Row(
+                                children: [
+                                  Icon(Icons.info_outline, color: _primaryTeal),
+                                  SizedBox(width: 10),
+                                  Text("Changes Saved"),
+                                ],
+                              ),
+                              content: const Text("Budget rules have been updated successfully. To apply these changes, please restart the app."),
+                              actions: [
+                                TextButton(
+                                  onPressed: () {
+                                    exit(0);
+                                  },
+                                  child: const Text("SHUTDOWN APP", style: TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
                           );
-                          Navigator.pop(context);
                         }
                       }
                     }

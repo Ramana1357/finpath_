@@ -155,8 +155,8 @@ class LocalCacheService extends ChangeNotifier {
       final profile = await isar.profileModels.get(hashedId);
       if (profile == null) return;
 
-      double toEmergency = incomeAmount * 0.20;
-      double toVaults = incomeAmount * 0.30;
+      double toEmergency = incomeAmount * (profile.emergencyPercent / 100);
+      double toVaults = incomeAmount * (profile.dreamVaultPercent / 100);
       double updatedLocked = profile.totalLockedSavings + toEmergency;
       
       final vaults = await isar.vaultModels.where().findAll();
@@ -187,6 +187,24 @@ class LocalCacheService extends ChangeNotifier {
         updatedAt: DateTime.now(),
       );
       await isar.profileModels.put(updatedProfile);
+    });
+    notifyListeners();
+  }
+
+  Future<void> freshRestart(String uid) async {
+    final hashedId = _fastHash(uid);
+    await isar.writeTxn(() async {
+      await isar.expenseTransactions.clear();
+      await isar.vaultModels.clear();
+      final profile = await isar.profileModels.get(hashedId);
+      if (profile != null) {
+        final updatedProfile = profile.copyWith(
+          totalLockedSavings: 0.0,
+          totalVaultSavings: 0.0,
+          updatedAt: DateTime.now(),
+        );
+        await isar.profileModels.put(updatedProfile);
+      }
     });
     notifyListeners();
   }

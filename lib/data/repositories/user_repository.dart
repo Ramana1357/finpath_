@@ -154,15 +154,15 @@ class UserRepository {
         .get();
 
     double correctedTotalSavings = 0.0;
-    
-    // SMART DE-DUPLICATION: 
+
+    // SMART DE-DUPLICATION:
     // Uses a fingerprint of (Title + Amount + Date) to filter out duplicate records
     // that exist in Firestore with different IDs but identical content.
     final Set<String> contentHashes = {};
 
     for (final doc in snapshots.docs) {
       final data = doc.data() as Map<String, dynamic>;
-      
+
       final String title = data['title'] ?? '';
       final double amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
       final DateTime date = (data['date'] as Timestamp).toDate();
@@ -225,11 +225,49 @@ class UserRepository {
     }
   }
 
+  Future<void> backupUserData(String uid) async {
+    // 1. Backup Profile
+    final profile = await _cacheService.getProfile(uid);
+    if (profile != null) {
+      await _firestoreService.saveProfile(profile);
+    }
+
+    // 2. Backup Vaults
+    final vaults = await _cacheService.getAllVaults();
+    await _firestoreService.saveVaults(uid, vaults);
+
+    // 3. Backup Transactions (Last 6 months)
+    await backupTransactions(uid);
+  }
+
+  Future<void> restoreUserData(String uid) async {
+    // 1. Restore Profile
+    final remoteProfile = await _firestoreService.getProfile(uid);
+    if (remoteProfile != null) {
+      await _cacheService.saveProfile(remoteProfile);
+    }
+
+    // 2. Restore Vaults
+    final remoteVaults = await _firestoreService.getVaults(uid);
+    // Clear local vaults first
+    final localVaults = await _cacheService.getAllVaults();
+    for (var v in localVaults) {
+      await _cacheService.deleteVault(v.id);
+    }
+    // Save remote vaults to local Isar
+    for (var v in remoteVaults) {
+      await _cacheService.saveVault(v);
+    }
+
+    // 3. Restore Transactions (And recalculate savings totals)
+    await restoreTransactions(uid);
+  }
+
   Future<void> logout(String uid, {bool shouldBackup = false}) async {
     if (shouldBackup) {
-      await backupTransactions(uid);
+      await backupUserData(uid);
     }
-    
+
     // Explicitly reset savings to 0 on logout as requested
     final remoteProfile = await _firestoreService.getProfile(uid);
     if (remoteProfile != null) {
@@ -239,6 +277,11 @@ class UserRepository {
         updatedAt: DateTime.now(),
       );
       await _firestoreService.saveProfile(updatedProfile);
+      
+      // Also clear remote vaults if not backing up
+      if (!shouldBackup) {
+        await _firestoreService.saveVaults(uid, []);
+      }
     }
 
     // Clear local state
@@ -248,6 +291,10 @@ class UserRepository {
 
   Future<void> updatePassword(String newPassword) async {
     await _authService.updatePassword(newPassword);
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _authService.sendPasswordResetEmail(email);
   }
 
   Future<bool> verifyPassword(String password) async {

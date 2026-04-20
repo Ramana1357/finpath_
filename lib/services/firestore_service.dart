@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/models/auth_user_model.dart';
 import '../data/models/profile_model.dart';
+import '../data/models/vault_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -29,6 +30,29 @@ class FirestoreService {
       return ProfileModel.fromMap(doc.data()!);
     }
     return null;
+  }
+
+  // Vaults (Sub-collection under profile)
+  Future<void> saveVaults(String uid, List<VaultModel> vaults) async {
+    final batch = _db.batch();
+    final vaultCollection = _db.collection('profiles').doc(uid).collection('vaults');
+
+    // Clear existing remote vaults first to prevent duplicates/stale data
+    final existingVaults = await vaultCollection.get();
+    for (var doc in existingVaults.docs) {
+      batch.delete(doc.reference);
+    }
+
+    for (var vault in vaults) {
+      final docRef = vaultCollection.doc();
+      batch.set(docRef, vault.toMap());
+    }
+    await batch.commit();
+  }
+
+  Future<List<VaultModel>> getVaults(String uid) async {
+    final snapshot = await _db.collection('profiles').doc(uid).collection('vaults').get();
+    return snapshot.docs.map((doc) => VaultModel.fromMap(doc.data())).toList();
   }
 
   // Check if profile exists

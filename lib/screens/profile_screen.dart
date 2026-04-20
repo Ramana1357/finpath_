@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../presentation/providers/auth_provider.dart';
@@ -310,6 +311,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           "Nuke Isar DB (Full Reset)",
           onTap: () => _nukeIsarDatabase(context),
         ),
+        _buildSettingsItem(
+          Icons.refresh_outlined, 
+          "Fresh Restart (Clean Profile)",
+          onTap: () => _freshRestart(context),
+        ),
+        if (kDebugMode) ...[
+          const SizedBox(height: 10),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                "DEBUG: FRESH RESET ENABLED",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -647,6 +674,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Isar DB Nuked! Please restart the app."), backgroundColor: Colors.red),
         );
+      }
+    }
+  }
+
+  void _freshRestart(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Fresh Restart?"),
+        content: const Text("This will clear all transactions, vaults, and reset your Profile's savings/vault totals to zero. Account settings remain."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text("Restart Data", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final cacheService = context.read<LocalCacheService>();
+      final authProvider = context.read<AuthProvider>();
+      final profile = authProvider.profile;
+
+      if (profile != null) {
+        await cacheService.freshRestart(profile.uid);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Data reset! Total savings set to 0."), backgroundColor: Colors.orange),
+          );
+        }
       }
     }
   }
@@ -1236,7 +1296,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text("Log Out"),
-                content: const Text("Would you like to save your last 6 months of data to the cloud?"),
+                content: const Text(
+                  "the data regarding to dream vault and savings will be deleted permanently and the money will be allocated to total balance. choose backup and logout incase of short term logout.else you can either choose to just logout or backup and logout",
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, 0), // Cancel

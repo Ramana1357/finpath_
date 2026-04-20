@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'forgot_password_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -157,7 +158,16 @@ class _AuthScreenState extends State<AuthScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ForgotPasswordScreen(
+                                initialEmail: _emailController.text.trim(),
+                              ),
+                            ),
+                          );
+                        },
                         child: const Text(
                           'Forgot Password?',
                           style: TextStyle(color: primaryTeal, fontWeight: FontWeight.w600),
