@@ -17,11 +17,6 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLogin = true;
   bool _obscurePassword = true;
 
-  // App Theme Colors (Matching Dashboard)
-  static const Color primaryTeal = Color(0xFF006D77);
-  static const Color backgroundGray = Color(0xFFEDF6F9);
-  static const Color accentTeal = Color(0xFF83C5BE);
-
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -43,7 +38,7 @@ class _AuthScreenState extends State<AuthScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString()),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -54,9 +49,10 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthProvider>().isLoading;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: backgroundGray,
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -72,12 +68,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colorScheme.surface,
                         shape: BoxShape.circle,
-                        border: Border.all(color: primaryTeal.withOpacity(0.2), width: 2),
+                        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2), width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: primaryTeal.withOpacity(0.1),
+                            color: colorScheme.primary.withValues(alpha: 0.1),
                             blurRadius: 20,
                             spreadRadius: 5,
                           ),
@@ -90,7 +86,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           width: 80,
                           fit: BoxFit.contain,
                           errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.account_balance_wallet_rounded, size: 50, color: primaryTeal),
+                              Icon(Icons.account_balance_wallet_rounded, size: 50, color: colorScheme.primary),
                         ),
                       ),
                     ),
@@ -101,7 +97,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
-                      color: primaryTeal,
+                      color: colorScheme.primary,
                       letterSpacing: 2,
                     ),
                     textAlign: TextAlign.center,
@@ -111,7 +107,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     _isLogin ? 'Welcome back, track your path' : 'Start your financial journey',
                     style: TextStyle(
                       fontSize: 16,
-                      color: primaryTeal.withOpacity(0.7),
+                      color: colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
@@ -120,6 +116,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   
                   // Email Field
                   _buildTextField(
+                    context: context,
                     controller: _emailController,
                     label: 'Email Address',
                     icon: Icons.email_outlined,
@@ -135,6 +132,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   
                   // Password Field
                   _buildTextField(
+                    context: context,
                     controller: _passwordController,
                     label: 'Password',
                     icon: Icons.lock_outline,
@@ -142,7 +140,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                        color: primaryTeal.withOpacity(0.6),
+                        color: colorScheme.onSurfaceVariant,
                       ),
                       onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                     ),
@@ -180,9 +178,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                           );
                         },
-                        child: const Text(
+                        child: Text(
                           'Forgot Password?',
-                          style: TextStyle(color: primaryTeal, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -193,18 +191,18 @@ class _AuthScreenState extends State<AuthScreen> {
                   ElevatedButton(
                     onPressed: isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryTeal,
-                      foregroundColor: Colors.white,
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 4,
-                      shadowColor: primaryTeal.withOpacity(0.4),
+                      shadowColor: colorScheme.primary.withValues(alpha: 0.4),
                     ),
                     child: isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 24,
                             width: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: colorScheme.onPrimary),
                           )
                         : Text(
                             _isLogin ? 'Login' : 'Create Account',
@@ -217,15 +215,15 @@ class _AuthScreenState extends State<AuthScreen> {
                   // Divider
                   Row(
                     children: [
-                      Expanded(child: Divider(color: primaryTeal.withOpacity(0.2))),
+                      Expanded(child: Divider(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2))),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Text(
                           'OR',
-                          style: TextStyle(color: primaryTeal.withOpacity(0.5), fontWeight: FontWeight.bold),
+                          style: TextStyle(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5), fontWeight: FontWeight.bold),
                         ),
                       ),
-                      Expanded(child: Divider(color: primaryTeal.withOpacity(0.2))),
+                      Expanded(child: Divider(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.2))),
                     ],
                   ),
                   
@@ -242,9 +240,9 @@ class _AuthScreenState extends State<AuthScreen> {
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: primaryTeal,
+                      foregroundColor: colorScheme.primary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: primaryTeal, width: 1.5),
+                      side: BorderSide(color: colorScheme.primary, width: 1.5),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                   ),
@@ -257,14 +255,14 @@ class _AuthScreenState extends State<AuthScreen> {
                     children: [
                       Text(
                         _isLogin ? "Don't have an account? " : "Already have an account? ",
-                        style: TextStyle(color: primaryTeal.withOpacity(0.7)),
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
                       ),
                       GestureDetector(
                         onTap: () => setState(() => _isLogin = !_isLogin),
                         child: Text(
                           _isLogin ? 'Sign Up' : 'Login',
-                          style: const TextStyle(
-                            color: primaryTeal,
+                          style: TextStyle(
+                            color: colorScheme.primary,
                             fontWeight: FontWeight.bold,
                             decoration: TextDecoration.underline,
                           ),
@@ -282,6 +280,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Widget _buildTextField({
+    required BuildContext context,
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -290,33 +289,34 @@ class _AuthScreenState extends State<AuthScreen> {
     Widget? suffixIcon,
     String? Function(String?)? validator,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: const TextStyle(color: primaryTeal, fontWeight: FontWeight.w500),
+      style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: primaryTeal.withOpacity(0.6)),
-        prefixIcon: Icon(icon, color: primaryTeal),
+        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        prefixIcon: Icon(icon, color: colorScheme.primary),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: primaryTeal.withOpacity(0.1), width: 1),
+          borderSide: BorderSide(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.1), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: primaryTeal, width: 2),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+          borderSide: BorderSide(color: colorScheme.error, width: 1),
         ),
       ),
       validator: validator,

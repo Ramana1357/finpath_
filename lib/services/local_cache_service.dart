@@ -5,6 +5,8 @@ import '../models/transaction.dart';
 import '../data/models/profile_model.dart';
 import '../data/models/vault_model.dart';
 
+import '../data/models/insight_model.dart';
+
 class LocalCacheService extends ChangeNotifier {
   late Isar isar;
   bool _isInitialized = false;
@@ -17,7 +19,7 @@ class LocalCacheService extends ChangeNotifier {
     if (_isInitialized) return;
     final dir = await getApplicationDocumentsDirectory();
     isar = await Isar.open(
-      [ExpenseTransactionSchema, ProfileModelSchema, VaultModelSchema],
+      [ExpenseTransactionSchema, ProfileModelSchema, VaultModelSchema, InsightModelSchema],
       directory: dir.path,
     );
     _isInitialized = true;
@@ -153,7 +155,29 @@ class LocalCacheService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- VAULT METHODS ---
+  // --- INSIGHT METHODS ---
+  Future<void> saveInsight(InsightModel insight) async {
+    await isar.writeTxn(() async {
+      final existing = await isar.insightModels
+          .filter()
+          .monthIdEqualTo(insight.monthId)
+          .findFirst();
+      
+      if (existing != null) {
+        insight.id = existing.id;
+      }
+      await isar.insightModels.put(insight);
+    });
+    notifyListeners();
+  }
+
+  Stream<InsightModel?> watchInsightForMonth(String monthId) {
+    return isar.insightModels
+        .filter()
+        .monthIdEqualTo(monthId)
+        .watch(fireImmediately: true)
+        .map((insights) => insights.isNotEmpty ? insights.first : null);
+  }
   Future<void> saveVault(VaultModel vault) async {
     await isar.writeTxn(() async {
       await isar.vaultModels.put(vault);

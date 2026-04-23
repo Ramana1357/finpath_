@@ -38,21 +38,16 @@ class _VaultScreenState extends State<VaultScreen> {
   // --- STATE VARIABLES ---
   bool _isCrisisModeActive = false;
 
-  // --- UI COLORS ---
-  static const Color _primaryTeal = Color(0xFF006D77);
-  static const Color _backgroundGray = Color(0xFFEDF6F9);
-  static const Color _accentYellow = Color(0xFFF9C74F);
-  static const Color _progressGreen = Color(0xFF43AA8B);
-
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
     
     final cacheService = context.read<LocalCacheService>();
     final uid = authProvider.user?.uid;
 
     return Scaffold(
-      backgroundColor: _backgroundGray,
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: StreamBuilder<ProfileModel?>(
           stream: uid != null ? cacheService.watchProfile(uid) : Stream.value(null),
@@ -93,12 +88,12 @@ class _VaultScreenState extends State<VaultScreen> {
                             const SizedBox(height: 20),
                             _buildGamificationCard(userLevel, userLevelName, levelProgress),
                             const SizedBox(height: 25),
-                            const Text(
+                            Text(
                               "My Dream Vaults",
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: _primaryTeal,
+                                color: colorScheme.primary,
                               ),
                             ),
                             const SizedBox(height: 15),
@@ -123,28 +118,29 @@ class _VaultScreenState extends State<VaultScreen> {
   // --- WIDGET COMPONENTS ---
 
   Widget _buildAddVaultButton(BuildContext context, List<VaultModel> vaults) {
+    final colorScheme = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => _showAddVaultDialog(context, vaults),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(25),
           border: Border.all(
-            color: _primaryTeal.withOpacity(0.2),
+            color: colorScheme.primary.withValues(alpha: 0.2),
             style: BorderStyle.solid,
             width: 1,
           ),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_circle_outline, color: _primaryTeal),
-            SizedBox(width: 10),
+            Icon(Icons.add_circle_outline, color: colorScheme.primary),
+            const SizedBox(width: 10),
             Text(
               "Add New Vault",
               style: TextStyle(
-                color: _primaryTeal,
+                color: colorScheme.primary,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -281,7 +277,7 @@ class _VaultScreenState extends State<VaultScreen> {
                           "Please enter a valid target amount (> 0)");
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                   child: const Text("Save Changes",
                       style: TextStyle(color: Colors.white)),
                 )
@@ -397,7 +393,7 @@ class _VaultScreenState extends State<VaultScreen> {
                           "Please enter a valid target amount (> 0)");
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                   child: const Text("Create Vault",
                       style: TextStyle(color: Colors.white)),
                 )
@@ -412,6 +408,7 @@ class _VaultScreenState extends State<VaultScreen> {
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
     final profile = authProvider.profile;
+    final colorScheme = Theme.of(context).colorScheme;
     
     // SAFE ACCESS: Check if name exists before split/indexing
     String initials = 'JD';
@@ -426,9 +423,9 @@ class _VaultScreenState extends State<VaultScreen> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: _primaryTeal,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
         ),
@@ -436,10 +433,10 @@ class _VaultScreenState extends State<VaultScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'FINPATH',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -448,7 +445,7 @@ class _VaultScreenState extends State<VaultScreen> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_none, color: Colors.white),
+                icon: Icon(Icons.notifications_none, color: colorScheme.onPrimary),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -464,10 +461,10 @@ class _VaultScreenState extends State<VaultScreen> {
                   );
                 },
                 child: CircleAvatar(
-                  backgroundColor: const Color(0xFF83C5BE),
+                  backgroundColor: colorScheme.secondary,
                   child: Text(initials,
-                      style: const TextStyle(
-                          color: _primaryTeal, fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          color: colorScheme.onSecondary, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -478,11 +475,12 @@ class _VaultScreenState extends State<VaultScreen> {
   }
 
   Widget _buildTotalSavingsCard(double amount, int percent) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: const Color(0xFF023E3E), // Darker teal as per image
+        color: colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(25),
       ),
       child: Column(
@@ -490,13 +488,13 @@ class _VaultScreenState extends State<VaultScreen> {
         children: [
           Text(
             "Total Locked Savings ($percent%)",
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            style: TextStyle(color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7), fontSize: 14),
           ),
           const SizedBox(height: 10),
           Text(
             "₹${amount.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}",
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onPrimaryContainer,
               fontSize: 32,
               fontWeight: FontWeight.bold,
             ),
@@ -507,13 +505,16 @@ class _VaultScreenState extends State<VaultScreen> {
   }
 
   Widget _buildGamificationCard(int level, String name, double progress) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentYellow = colorScheme.tertiary;
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: colorScheme.onSurface.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           )
@@ -522,8 +523,8 @@ class _VaultScreenState extends State<VaultScreen> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          decoration: const BoxDecoration(
-            border: Border(left: BorderSide(color: _accentYellow, width: 8)),
+          decoration: BoxDecoration(
+            border: Border(left: BorderSide(color: accentYellow, width: 8)),
           ),
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -534,14 +535,14 @@ class _VaultScreenState extends State<VaultScreen> {
                   Expanded( 
                     child: Row(
                       children: [
-                        const Icon(Icons.emoji_events_outlined,
-                            color: _accentYellow),
+                        Icon(Icons.emoji_events_outlined,
+                            color: accentYellow),
                         const SizedBox(width: 10),
                         Flexible( 
                           child: Text(
                             "Level $level: $name",
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSurface),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -551,15 +552,15 @@ class _VaultScreenState extends State<VaultScreen> {
                   const SizedBox(width: 10),
                   Text(
                     "${(progress * 100).toInt()}% to Level ${level + 1}",
-                    style: const TextStyle(color: Colors.blueGrey, fontSize: 12),
+                    style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
                   ),
                 ],
               ),
               const SizedBox(height: 15),
               LinearProgressIndicator(
                 value: progress,
-                backgroundColor: _backgroundGray,
-                color: _accentYellow,
+                backgroundColor: colorScheme.background,
+                color: accentYellow,
                 minHeight: 10,
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -571,28 +572,29 @@ class _VaultScreenState extends State<VaultScreen> {
   }
 
   Widget _buildVaultList(List<VaultModel> vaults, List<VaultModel> allVaults) {
+    final colorScheme = Theme.of(context).colorScheme;
     if (vaults.isEmpty) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 40),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.5),
+          color: colorScheme.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(25),
-          border: Border.all(color: Colors.white),
+          border: Border.all(color: colorScheme.surface),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.lock_open_outlined, size: 40, color: _primaryTeal.withOpacity(0.5)),
+            Icon(Icons.lock_open_outlined, size: 40, color: colorScheme.primary.withValues(alpha: 0.5)),
             const SizedBox(height: 15),
-            const Text(
+            Text(
               "No vaults created yet.",
-              style: TextStyle(fontWeight: FontWeight.bold, color: _primaryTeal),
+              style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary),
             ),
             const SizedBox(height: 5),
-            const Text(
+            Text(
               "Click below to start your first saving goal!",
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
             ),
           ],
         ),
@@ -606,24 +608,26 @@ class _VaultScreenState extends State<VaultScreen> {
       itemBuilder: (context, index) {
         final vault = vaults[index];
         final bool isCompleted = vault.currentAmount >= vault.targetAmount;
+        final colorScheme = Theme.of(context).colorScheme;
+        const progressGreen = Color(0xFF43AA8B);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 15),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(25),
-            border: isCompleted ? Border.all(color: _progressGreen, width: 2) : null,
+            border: isCompleted ? Border.all(color: colorScheme.primary, width: 2) : null,
           ),
           child: Column(
             children: [
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: _backgroundGray,
+                    backgroundColor: colorScheme.background,
                     child: Icon(
                       isCompleted ? Icons.check_circle : Icons.stars, 
-                      color: isCompleted ? _progressGreen : _primaryTeal, 
+                      color: isCompleted ? colorScheme.primary : colorScheme.primary, 
                       size: 20
                     ),
                   ),
@@ -636,23 +640,23 @@ class _VaultScreenState extends State<VaultScreen> {
                           children: [
                             Text(
                               vault.title,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSurface),
                             ),
                           ],
                         ),
                         Text(
                           "Share: ${vault.allocationPercent.toInt()}% | ₹${vault.currentAmount.toInt()} / ₹${vault.targetAmount.toInt()}",
                           style:
-                              TextStyle(color: Colors.grey[600], fontSize: 13),
+                              TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   Text(
                     "${(vault.percentage * 100).toInt()}%",
-                    style: const TextStyle(
-                      color: _progressGreen,
+                    style: TextStyle(
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                     ),
@@ -662,7 +666,7 @@ class _VaultScreenState extends State<VaultScreen> {
                     icon: Icon(
                       isCompleted ? Icons.delete_outline : Icons.edit_outlined, 
                       size: 20, 
-                      color: isCompleted ? Colors.red : Colors.grey
+                      color: isCompleted ? colorScheme.error : colorScheme.onSurfaceVariant
                     ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -675,8 +679,8 @@ class _VaultScreenState extends State<VaultScreen> {
               const SizedBox(height: 15),
               LinearProgressIndicator(
                 value: vault.percentage.clamp(0.0, 1.0),
-                backgroundColor: _backgroundGray,
-                color: _progressGreen,
+                backgroundColor: colorScheme.background,
+                color: colorScheme.primary,
                 minHeight: 8,
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -689,6 +693,7 @@ class _VaultScreenState extends State<VaultScreen> {
 
   void _confirmClaimVault(BuildContext context, VaultModel vault) {
     final cacheService = context.read<LocalCacheService>();
+    final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -701,8 +706,8 @@ class _VaultScreenState extends State<VaultScreen> {
               await cacheService.deleteVault(vault.id);
               if (context.mounted) Navigator.pop(context);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: _progressGreen),
-            child: const Text("Claim & Remove", style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary),
+            child: Text("Claim & Remove", style: TextStyle(color: colorScheme.onPrimary)),
           ),
         ],
       ),

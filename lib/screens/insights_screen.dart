@@ -21,12 +21,6 @@ class InsightsScreen extends StatefulWidget {
 class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  static const Color _primaryTeal = Color(0xFF006D77);
-  static const Color _backgroundGray = Color(0xFFEDF6F9);
-  static const Color _accentTeal = Color(0xFF83C5BE);
-  static const Color _savingsGreen = Color(0xFF43AA8B);
-  static const Color _surfaceWhite = Colors.white;
-
   @override
   void initState() {
     super.initState();
@@ -43,15 +37,15 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
   Widget build(BuildContext context) {
     final cacheService = context.read<LocalCacheService>();
     final authProvider = context.read<AuthProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: _backgroundGray,
       body: SafeArea(
         child: StreamBuilder<List<ExpenseTransaction>>(
           stream: cacheService.isar.expenseTransactions.where().watch(fireImmediately: true),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator(color: _primaryTeal));
+              return Center(child: CircularProgressIndicator(color: colorScheme.primary));
             }
 
             // Fetch ProfileModel synchronously for real-time reactivity
@@ -182,9 +176,9 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        _buildHealthScoreCard(healthScore, savingsRate),
+                        _buildHealthScoreCard(context, healthScore, savingsRate),
                         const SizedBox(height: 25),
-                        _buildTabBar(nTarget, wTarget, sTarget),
+                        _buildTabBar(context, nTarget, wTarget, sTarget),
                         const SizedBox(height: 25),
                         SizedBox(
                           height: 520, 
@@ -194,6 +188,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                             children: [
                               _KeepAliveWrapper(
                                 child: _buildBudgetDashboard(
+                                  context,
                                   needsAmt: needsTotal, 
                                   wantsAmt: wantsTotal, 
                                   savingsAmt: savingsTotal,
@@ -207,6 +202,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                               ),
                               _KeepAliveWrapper(
                                 child: _buildZeroBasedDashboard(
+                                  context,
                                   actualIncome: actualIncome,
                                   needsTotal: needsTotal,
                                   wantsTotal: wantsTotal,
@@ -216,6 +212,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                               ),
                               _KeepAliveWrapper(
                                 child: _buildEnvelopeDashboard(
+                                  context,
                                   categorySpent: categorySpent,
                                   needsCats: needsCats,
                                   wantsCats: wantsCats,
@@ -235,7 +232,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                                 ),
                               ),
                               _KeepAliveWrapper(
-                                child: _buildYearlyTrendDashboard(monthlyNetMap, transactions),
+                                child: _buildYearlyTrendDashboard(context, monthlyNetMap, transactions),
                               ),
                             ],
                           ),
@@ -253,6 +250,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
   }
 
   Widget _buildAppBar(BuildContext context, ProfileModel? profile) {
+    final colorScheme = Theme.of(context).colorScheme;
     String initials = 'JD';
     if (profile?.name != null && profile!.name.trim().isNotEmpty) {
       try {
@@ -265,9 +263,9 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: _primaryTeal,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
         ),
@@ -275,10 +273,10 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'FINPATH',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -287,7 +285,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_none, color: Colors.white),
+                icon: Icon(Icons.notifications_none, color: colorScheme.onPrimary),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -298,11 +296,11 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen())),
                 child: CircleAvatar(
-                  backgroundColor: _accentTeal,
+                  backgroundColor: colorScheme.secondary,
                   child: Text(
                     initials,
-                    style: const TextStyle(
-                      color: _primaryTeal,
+                    style: TextStyle(
+                      color: colorScheme.onSecondary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -315,8 +313,9 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildHealthScoreCard(double score, double savingsRate) {
-    Color scoreColor = score > 70 ? Colors.green : (score > 40 ? Colors.orange : Colors.red);
+  Widget _buildHealthScoreCard(BuildContext context, double score, double savingsRate) {
+    final colorScheme = Theme.of(context).colorScheme;
+    Color scoreColor = score > 70 ? colorScheme.primary : (score > 40 ? Colors.orange : colorScheme.error);
 
     String message = "";
     if (score > 80) {
@@ -332,7 +331,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
-        color: _surfaceWhite,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(30),
         boxShadow: [
           BoxShadow(
@@ -348,9 +347,9 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "Financial Health Score",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _primaryTeal),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.primary),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -368,7 +367,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           const SizedBox(height: 20),
           LinearProgressIndicator(
             value: score / 100,
-            backgroundColor: _backgroundGray,
+            backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
             color: scoreColor,
             minHeight: 12,
             borderRadius: BorderRadius.circular(10),
@@ -377,7 +376,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           Text(
             message,
             style: TextStyle(
-              color: Colors.grey[600],
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 13,
               fontStyle: FontStyle.italic,
             ),
@@ -387,12 +386,13 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildTabBar(double n, double w, double s) {
+  Widget _buildTabBar(BuildContext context, double n, double w, double s) {
+    final colorScheme = Theme.of(context).colorScheme;
     final String ruleName = "${n.toInt()}/${w.toInt()}/${s.toInt()}";
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: _surfaceWhite,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -406,10 +406,10 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
         controller: _tabController,
         indicator: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
-          color: _accentTeal.withValues(alpha: 0.2),
+          color: colorScheme.secondary.withValues(alpha: 0.2),
         ),
-        labelColor: _primaryTeal,
-        unselectedLabelColor: Colors.grey[400],
+        labelColor: colorScheme.primary,
+        unselectedLabelColor: colorScheme.onSurface.withValues(alpha: 0.4),
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
         indicatorSize: TabBarIndicatorSize.tab,
@@ -426,7 +426,8 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildBudgetDashboard({
+  Widget _buildBudgetDashboard(
+    BuildContext context, {
     required double needsAmt, 
     required double wantsAmt, 
     required double savingsAmt,
@@ -437,13 +438,14 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     required double wTarget,
     required double sTarget,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     final String ruleName = "${nTarget.toInt()}/${wTarget.toInt()}/${sTarget.toInt()}";
     
     return SingleChildScrollView(
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _surfaceWhite,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -458,29 +460,29 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           children: [
             Row(
               children: [
-                const Icon(Icons.analytics_outlined, color: _primaryTeal, size: 20),
+                Icon(Icons.analytics_outlined, color: colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   "$ruleName Dashboard",
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTeal),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            _buildProgressRow("Needs", nTarget.toInt(), needsAmt, needsBudget, _primaryTeal),
+            _buildProgressRow(context, "Needs", nTarget.toInt(), needsAmt, needsBudget, colorScheme.primary),
             const SizedBox(height: 24),
-            _buildProgressRow("Wants", wTarget.toInt(), wantsAmt, wantsBudget, _accentTeal),
+            _buildProgressRow(context, "Wants", wTarget.toInt(), wantsAmt, wantsBudget, colorScheme.secondary),
             const SizedBox(height: 24),
-            _buildProgressRow("Savings", sTarget.toInt(), savingsAmt, savingsBudget, _savingsGreen),
+            _buildProgressRow(context, "Savings", sTarget.toInt(), savingsAmt, savingsBudget, const Color(0xFF43AA8B)),
             const SizedBox(height: 30),
-            const Divider(height: 1, color: _backgroundGray),
+            Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.1)),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSummaryItem("Needs", needsAmt, _primaryTeal),
-                _buildSummaryItem("Wants", wantsAmt, _accentTeal),
-                _buildSummaryItem("Savings", savingsAmt, _savingsGreen),
+                _buildSummaryItem(context, "Needs", needsAmt, colorScheme.primary),
+                _buildSummaryItem(context, "Wants", wantsAmt, colorScheme.secondary),
+                _buildSummaryItem(context, "Savings", savingsAmt, const Color(0xFF43AA8B)),
               ],
             ),
           ],
@@ -489,14 +491,15 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildProgressRow(String label, int targetPct, double actualAmt, double budgetAmt, Color color) {
+  Widget _buildProgressRow(BuildContext context, String label, int targetPct, double actualAmt, double budgetAmt, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
     final double ratio = budgetAmt > 0 ? (actualAmt / budgetAmt) : 0.0;
     final double usageOfBudget = ratio * 100;
     
     final bool isOverspent = (label != "Savings") && (ratio > 1.0);
     final bool isUnderSaving = (label == "Savings") && (ratio < 1.0);
     
-    final Color barColor = isOverspent ? Colors.red.shade700 : (isUnderSaving ? Colors.orange.shade700 : color);
+    final Color barColor = isOverspent ? colorScheme.error : (isUnderSaving ? Colors.orange.shade700 : color);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,7 +512,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               "₹${actualAmt.toStringAsFixed(0)} / ₹${budgetAmt.toStringAsFixed(0)}",
               style: TextStyle(
                 fontSize: 12, 
-                color: (isOverspent || isUnderSaving) ? Colors.red : Colors.grey[700], 
+                color: (isOverspent || isUnderSaving) ? colorScheme.error : colorScheme.onSurface.withValues(alpha: 0.7), 
                 fontWeight: FontWeight.bold
               ),
             ),
@@ -520,7 +523,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           borderRadius: BorderRadius.circular(5),
           child: LinearProgressIndicator(
             value: ratio.clamp(0.0, 1.0),
-            backgroundColor: _backgroundGray,
+            backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
             color: barColor,
             minHeight: 12,
             borderRadius: BorderRadius.circular(10),
@@ -531,16 +534,17 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           label == "Savings" 
             ? "${usageOfBudget.toStringAsFixed(1)}% of Savings budget is secured"
             : "${usageOfBudget.toStringAsFixed(1)}% of $label Budget Used",
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 10, color: colorScheme.onSurface.withValues(alpha: 0.6)),
         ),
       ],
     );
   }
 
-  Widget _buildSummaryItem(String label, double amount, Color color) {
+  Widget _buildSummaryItem(BuildContext context, String label, double amount, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(label, style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 4),
         Text(
           "₹${amount.toStringAsFixed(0)}",
@@ -550,18 +554,21 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildZeroBasedDashboard({
+  Widget _buildZeroBasedDashboard(
+    BuildContext context, {
     required double actualIncome,
     required double needsTotal,
     required double wantsTotal,
     required double intentionalSavings,
     required double unassigned,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final Color savingsGreen = const Color(0xFF43AA8B);
     return SingleChildScrollView(
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _surfaceWhite,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -574,64 +581,66 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.account_balance_wallet_outlined, color: _primaryTeal, size: 20),
-                SizedBox(width: 8),
+                Icon(Icons.account_balance_wallet_outlined, color: colorScheme.primary, size: 20),
+                const SizedBox(width: 8),
                 Text(
                   "Zero-Based Strategy",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTeal),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
               "Goal: Give every rupee a job. 'To be Assigned' should be ₹0.",
-              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+              style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6), fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 25),
-            _buildAllocationRow("Total Income", actualIncome, actualIncome, Colors.grey.shade800, isIncome: true),
+            _buildAllocationRow(context, "Total Income", actualIncome, actualIncome, colorScheme.onSurface, isIncome: true),
             const SizedBox(height: 15),
-            const Divider(height: 1, color: _backgroundGray),
+            Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.1)),
             const SizedBox(height: 15),
-            _buildAllocationRow("Needs", needsTotal, actualIncome, _primaryTeal),
+            _buildAllocationRow(context, "Needs", needsTotal, actualIncome, colorScheme.primary),
             const SizedBox(height: 15),
-            _buildAllocationRow("Wants", wantsTotal, actualIncome, _accentTeal),
+            _buildAllocationRow(context, "Wants", wantsTotal, actualIncome, colorScheme.secondary),
             const SizedBox(height: 15),
-            _buildAllocationRow("Savings (Intentional)", intentionalSavings, actualIncome, _savingsGreen),
+            _buildAllocationRow(context, "Savings (Intentional)", intentionalSavings, actualIncome, savingsGreen),
             const SizedBox(height: 25),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: unassigned > 0 ? Colors.orange.withValues(alpha: 0.1) : _savingsGreen.withValues(alpha: 0.1),
+                color: unassigned > 0 ? Colors.orange.withValues(alpha: 0.1) : savingsGreen.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: unassigned > 0 ? Colors.orange.withValues(alpha: 0.2) : _savingsGreen.withValues(alpha: 0.2)),
+                border: Border.all(color: unassigned > 0 ? Colors.orange.withValues(alpha: 0.2) : savingsGreen.withValues(alpha: 0.2)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "To be Assigned",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          color: unassigned > 0 ? Colors.orange.shade900 : _savingsGreen
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "To be Assigned",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, 
+                            color: unassigned > 0 ? Colors.orange.shade900 : savingsGreen
+                          ),
                         ),
-                      ),
-                      Text(
-                        unassigned > 0 ? "Put this into your Vault!" : "Perfect! All income assigned.",
-                        style: TextStyle(fontSize: 11, color: unassigned > 0 ? Colors.orange.shade800 : _savingsGreen.withValues(alpha: 0.8)),
-                      ),
-                    ],
+                        Text(
+                          unassigned > 0 ? "Put this into your Vault!" : "Perfect! All income assigned.",
+                          style: TextStyle(fontSize: 11, color: unassigned > 0 ? Colors.orange.shade800 : savingsGreen.withValues(alpha: 0.8)),
+                        ),
+                      ],
+                    ),
                   ),
                   Text(
                     "₹${unassigned.toStringAsFixed(0)}",
                     style: TextStyle(
                       fontSize: 20, 
                       fontWeight: FontWeight.bold, 
-                      color: unassigned > 0 ? Colors.orange.shade900 : _savingsGreen
+                      color: unassigned > 0 ? Colors.orange.shade900 : savingsGreen
                     ),
                   ),
                 ],
@@ -643,7 +652,8 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildAllocationRow(String label, double amount, double total, Color color, {bool isIncome = false}) {
+  Widget _buildAllocationRow(BuildContext context, String label, double amount, double total, Color color, {bool isIncome = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
     final double pct = total > 0 ? (amount / total) * 100 : 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -651,7 +661,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: TextStyle(fontWeight: isIncome ? FontWeight.bold : FontWeight.w500, fontSize: 14, color: isIncome ? _primaryTeal : Colors.black87)),
+            Text(label, style: TextStyle(fontWeight: isIncome ? FontWeight.bold : FontWeight.w500, fontSize: 14, color: isIncome ? colorScheme.primary : colorScheme.onSurface)),
             Text(
               "₹${amount.toStringAsFixed(0)}",
               style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 15),
@@ -664,19 +674,20 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: (total > 0 ? (amount / total) : 0.0).clamp(0.0, 1.0),
-              backgroundColor: _backgroundGray,
+              backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
               color: color,
               minHeight: 8,
             ),
           ),
           const SizedBox(height: 6),
-          Text("${pct.toStringAsFixed(1)}% of total income", style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+          Text("${pct.toStringAsFixed(1)}% of total income", style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withValues(alpha: 0.5))),
         ],
       ],
     );
   }
 
-  Widget _buildEnvelopeDashboard({
+  Widget _buildEnvelopeDashboard(
+    BuildContext context, {
     required Map<String, double> categorySpent,
     required Set<String> needsCats,
     required Set<String> wantsCats,
@@ -685,6 +696,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     required Map<String, double> envelopeLimits,
     required Function(String, double) onUpdateLimit,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     final sortedCategories = categorySpent.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
@@ -692,7 +704,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _surfaceWhite,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
@@ -705,27 +717,27 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.mail_outline, color: _primaryTeal, size: 20),
-                SizedBox(width: 8),
+                Icon(Icons.mail_outline, color: colorScheme.primary, size: 20),
+                const SizedBox(width: 8),
                 Text(
                   "Envelope Strategy",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTeal),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
               "Track spending by category envelopes. Tap to adjust limits.",
-              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+              style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6), fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 20),
             if (categorySpent.isEmpty)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Text("No expenses logged this month.", style: TextStyle(color: Colors.grey)),
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Text("No expenses logged this month.", style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6))),
                 ),
               )
             else
@@ -734,22 +746,22 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 final spent = entry.value;
                 
                 double limit = envelopeLimits[cat] ?? 0;
-                Color catColor = Colors.grey;
+                Color catColor = colorScheme.onSurface.withValues(alpha: 0.4);
                 
                 if (needsCats.contains(cat)) {
                   if (limit == 0) limit = needsBudget * 0.25; 
-                  catColor = _primaryTeal;
+                  catColor = colorScheme.primary;
                 } else if (wantsCats.contains(cat)) {
                   if (limit == 0) limit = wantsBudget * 0.20;
-                  catColor = _accentTeal;
+                  catColor = colorScheme.secondary;
                 } else {
                   if (limit == 0) limit = (needsBudget + wantsBudget) * 0.05;
-                  catColor = _savingsGreen;
+                  catColor = const Color(0xFF43AA8B);
                 }
 
                 return GestureDetector(
                   onTap: () => _showLimitDialog(context, cat, limit, onUpdateLimit),
-                  child: _buildEnvelopeItem(cat, spent, limit, catColor),
+                  child: _buildEnvelopeItem(context, cat, spent, limit, catColor),
                 );
               }).toList(),
           ],
@@ -801,7 +813,9 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildYearlyTrendDashboard(Map<int, double> monthlyNet, List<ExpenseTransaction> allTransactions) {
+  Widget _buildYearlyTrendDashboard(BuildContext context, Map<int, double> monthlyNet, List<ExpenseTransaction> allTransactions) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final Color savingsGreen = const Color(0xFF43AA8B);
     List<FlSpot> spots = [];
     double cumulative = 0;
     for (int i = 1; i <= 12; i++) {
@@ -849,11 +863,11 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           predictionColor = Colors.orange.shade700;
         } else {
           predictionMessage = "Great! You're on track to finish the month with a surplus.";
-          predictionColor = _savingsGreen;
+          predictionColor = savingsGreen;
         }
       } else {
         predictionMessage = "You've already exceeded your ${monthlyIncome > 0 ? 'income' : 'budget'} for this month!";
-        predictionColor = Colors.red.shade700;
+        predictionColor = colorScheme.error;
       }
     }
 
@@ -861,7 +875,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _surfaceWhite,
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
@@ -872,15 +886,15 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
           children: [
             Row(
               children: [
-                const Icon(Icons.trending_up, color: _primaryTeal, size: 20),
+                Icon(Icons.trending_up, color: colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
-                const Text("Savings Trend", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _primaryTeal)),
+                Text("Savings Trend", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary)),
               ],
             ),
             const SizedBox(height: 10),
             Text(
               "Net savings month-over-month for ${DateTime.now().year}.",
-              style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+              style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6), fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 30),
             SizedBox(
@@ -913,15 +927,15 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                     LineChartBarData(
                       spots: spots,
                       isCurved: true,
-                      color: _primaryTeal,
+                      color: colorScheme.primary,
                       barWidth: 4,
                       isStrokeCapRound: true,
                       dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true, 
-                        color: _primaryTeal.withValues(alpha: 0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.1),
                         gradient: LinearGradient(
-                          colors: [_primaryTeal.withValues(alpha: 0.2), _primaryTeal.withValues(alpha: 0.0)],
+                          colors: [colorScheme.primary.withValues(alpha: 0.2), colorScheme.primary.withValues(alpha: 0.0)],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),
@@ -934,13 +948,13 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
             const SizedBox(height: 20),
             Row(
               children: [
-                Container(width: 12, height: 12, decoration: const BoxDecoration(color: _primaryTeal, shape: BoxShape.circle)),
+                Container(width: 12, height: 12, decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle)),
                 const SizedBox(width: 8),
-                const Text("Monthly Net Savings", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text("Monthly Net Savings", style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6))),
               ],
             ),
             const SizedBox(height: 20),
-            const Divider(height: 1, color: _backgroundGray),
+            Divider(height: 1, color: colorScheme.onSurface.withValues(alpha: 0.1)),
             const SizedBox(height: 20),
             // Broke Date Prediction UI
             Container(
@@ -965,7 +979,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                         const SizedBox(height: 4),
                         Text(
                           predictionMessage,
-                          style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                          style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.8)),
                         ),
                       ],
                     ),
@@ -977,10 +991,10 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Cumulative YTD:", style: TextStyle(fontSize: 14, color: Colors.grey)),
+                Text("Cumulative YTD:", style: TextStyle(fontSize: 14, color: colorScheme.onSurface.withValues(alpha: 0.6))),
                 Text(
                   "₹${cumulative.toStringAsFixed(0)}",
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: _primaryTeal, fontSize: 18),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.primary, fontSize: 18),
                 ),
               ],
             ),
@@ -990,7 +1004,8 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildEnvelopeItem(String category, double spent, double limit, Color color) {
+  Widget _buildEnvelopeItem(BuildContext context, String category, double spent, double limit, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
     final double ratio = limit > 0 ? (spent / limit) : 0;
     final bool isOver = ratio > 1.0;
     
@@ -1011,7 +1026,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 style: TextStyle(
                   fontSize: 12, 
                   fontWeight: FontWeight.bold,
-                  color: isOver ? Colors.red : Colors.grey[700]
+                  color: isOver ? colorScheme.error : colorScheme.onSurface.withValues(alpha: 0.7)
                 ),
               ),
             ],
@@ -1023,7 +1038,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 height: 10,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: _backgroundGray,
+                  color: colorScheme.onSurface.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(5),
                 ),
               ),
@@ -1032,7 +1047,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 child: Container(
                   height: 10,
                   decoration: BoxDecoration(
-                    color: isOver ? Colors.red : color,
+                    color: isOver ? colorScheme.error : color,
                     borderRadius: BorderRadius.circular(5),
                   ),
                 ),
@@ -1044,7 +1059,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 "Overspent by ₹${(spent - limit).toStringAsFixed(0)}!",
-                style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                style: TextStyle(color: colorScheme.error, fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -1053,14 +1068,15 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
   }
 
   Widget _buildComingSoon(String name) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline, size: 50, color: _accentTeal.withValues(alpha: 0.5)),
+          Icon(Icons.lock_outline, size: 50, color: colorScheme.primary.withValues(alpha: 0.5)),
           const SizedBox(height: 10),
-          Text("$name Strategy", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const Text("Coming in V2", style: TextStyle(color: Colors.grey)),
+          Text("$name Strategy", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onSurface.withValues(alpha: 0.6))),
+          Text("Coming in V2", style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6))),
         ],
       ),
     );

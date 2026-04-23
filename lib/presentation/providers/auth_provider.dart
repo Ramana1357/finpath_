@@ -22,7 +22,11 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get isBiometricAuthenticated => _isBiometricAuthenticated;
   bool get hasProfile => _profile != null;
 
+  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode get themeMode => _themeMode;
+
   AuthProvider(this._userRepository) {
+    _loadThemePreference();
     WidgetsBinding.instance.addObserver(this);
     _userRepository.authStateChanges.listen((user) async {
       print("Auth State Changed: ${user?.uid}"); // DEBUG LOG
@@ -41,9 +45,24 @@ class AuthProvider extends ChangeNotifier with WidgetsBindingObserver {
     _setLoading(true);
     try {
       _profile = await _userRepository.getProfile(uid);
+      if (_profile != null) {
+        // Assume theme preference is stored or we use system default
+        _loadThemePreference();
+      }
     } finally {
       _setLoading(false);
     }
+  }
+
+  void _loadThemePreference() {
+    // In a real app, you might fetch this from SharedPreferences or ProfileModel
+    // For now, we default to system and provide a setter
+    notifyListeners();
+  }
+
+  void setThemeMode(ThemeMode mode) {
+    _themeMode = mode;
+    notifyListeners();
   }
 
   Future<void> loadProfile(String uid) async {

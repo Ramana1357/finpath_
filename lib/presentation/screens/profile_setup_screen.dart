@@ -36,12 +36,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
-    const primaryTeal = Color(0xFF006D77);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEDF6F9),
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        title: const Text('Complete Your Profile', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Complete Your Profile', 
+          style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -53,13 +54,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 "We need a few more details to personalize your financial journey.",
-                style: TextStyle(color: Colors.blueGrey, fontSize: 14),
+                style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
               ),
               const SizedBox(height: 25),
               
               _buildTextField(
+                context: context,
                 controller: _nameController, 
                 label: 'Full Name', 
                 icon: Icons.person_outline,
@@ -77,6 +79,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 children: [
                   Expanded(
                     child: _buildTextField(
+                      context: context,
                       controller: _ageController, 
                       label: 'Age', 
                       icon: Icons.calendar_today_outlined, 
@@ -96,18 +99,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: Colors.transparent),
+                        boxShadow: [
+                          BoxShadow(color: colorScheme.onSurface.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                        ],
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedGender,
                           isExpanded: true,
+                          dropdownColor: colorScheme.surface,
                           items: _genders.map((String value) {
                             return DropdownMenuItem<String>(
                               value: value,
-                              child: Text(value),
+                              child: Text(value, style: TextStyle(color: colorScheme.onSurface)),
                             );
                           }).toList(),
                           onChanged: (newValue) {
@@ -124,6 +130,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 15),
               
               _buildTextField(
+                context: context,
                 controller: _phoneController, 
                 label: 'Mobile Number', 
                 icon: Icons.phone_android_outlined, 
@@ -141,6 +148,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 15),
               
               _buildTextField(
+                context: context,
                 controller: _professionController, 
                 label: 'Profession / Financial Status', 
                 icon: Icons.work_outline,
@@ -148,6 +156,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               const SizedBox(height: 15),
               
               _buildTextField(
+                context: context,
                 controller: _qualificationController, 
                 label: 'Qualification', 
                 icon: Icons.school_outlined,
@@ -180,12 +189,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryTeal,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                     elevation: 2,
                   ),
-                  child: const Text('Complete Setup', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: authProvider.isLoading 
+                    ? CircularProgressIndicator(color: colorScheme.onPrimary)
+                    : const Text('Complete Setup', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -196,28 +207,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Widget _buildTextField(
-    {required TextEditingController controller,
+    {required BuildContext context,
+    required TextEditingController controller,
     required String label,
     required IconData icon,
     bool isNumber = false,
     String? Function(String?)? validator,
     List<TextInputFormatter>? inputFormatters}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: colorScheme.onSurface.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: TextFormField(
         controller: controller,
+        style: TextStyle(color: colorScheme.onSurface),
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         validator: validator,
         inputFormatters: inputFormatters,
         decoration: InputDecoration(
           labelText: label,
-          prefixIcon: Icon(icon, color: const Color(0xFF006D77), size: 20),
+          labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(icon, color: colorScheme.primary, size: 20),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(15),
             borderSide: BorderSide.none,

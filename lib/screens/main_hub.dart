@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'vault_screen.dart';
 import 'insights_screen.dart';
-import 'profile_screen.dart';
 import 'feed_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:telephony/telephony.dart';
@@ -10,7 +9,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // REQUIRED FOR DateFormat
 import '../presentation/providers/auth_provider.dart';
-import '../data/models/profile_model.dart';
 import '../models/transaction.dart';
 import '../services/cloud_service.dart';
 import '../services/local_cache_service.dart';
@@ -42,10 +40,12 @@ class _MainHubState extends State<MainHub> {
         _localStream = cacheService.watchTransactions();
       });
 
-      final cloudService = CloudService();
+      final cloudService = context.read<CloudService>();
       await cloudService.updateStreak();
 
       final authProvider = context.read<AuthProvider>();
+      // Removed: cloudService.fetchAndSyncMonthlyInsight (No longer exists in CloudService)
+
       if (authProvider.needsRestoreCheck) {
         _showRestoreDialog();
       }
@@ -65,10 +65,10 @@ class _MainHubState extends State<MainHub> {
         onNewMessage: (SmsMessage message) {
           // IMMEDIATE VISUAL PROOF on your phone screen
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("SMS Detected... Processing Transaction"),
-              backgroundColor: Colors.blueGrey,
-              duration: Duration(seconds: 1),
+            SnackBar(
+              content: const Text("SMS Detected... Processing Transaction"),
+              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              duration: const Duration(seconds: 1),
             ),
           );
           _processMessage(message.body);
@@ -99,7 +99,7 @@ class _MainHubState extends State<MainHub> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Logged: ₹${parsed.amount} - ${parsed.isExpense ? 'Expense' : 'Income'}"),
-          backgroundColor: const Color(0xFF006D77),
+          backgroundColor: Theme.of(context).colorScheme.secondary,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -123,8 +123,8 @@ class _MainHubState extends State<MainHub> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF006D77)),
-            child: const Text("Fetch 6 Months", style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+            child: Text("Fetch 6 Months", style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
           ),
         ],
       ),
@@ -166,7 +166,7 @@ class _MainHubState extends State<MainHub> {
     String selectedCategory = 'Food';
     bool isExpense = true;
     DateTime selectedDate = DateTime.now();
-    const primaryTeal = Color(0xFF006D77);
+    final colorScheme = Theme.of(context).colorScheme;
 
     final categories = ['Food', 'Shopping', 'Transport', 'Entertainment', 'Health', 'Education', 'Bills', 'Income', 'Other'];
 
@@ -178,7 +178,7 @@ class _MainHubState extends State<MainHub> {
           builder: (context, setDialogState) {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: const Text("Manual Transaction", style: TextStyle(color: primaryTeal, fontWeight: FontWeight.bold)),
+              title: Text("Manual Transaction", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -186,21 +186,21 @@ class _MainHubState extends State<MainHub> {
                     if (dialogError != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: Text(dialogError!, style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                        child: Text(dialogError!, style: TextStyle(color: colorScheme.error, fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                     TextField(
                       controller: titleController,
                       maxLength: 20,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Title (e.g. Starbucks)",
-                        prefixIcon: Icon(Icons.edit, color: primaryTeal),
+                        prefixIcon: Icon(Icons.edit, color: colorScheme.primary),
                       ),
                     ),
                     TextField(
                       controller: amountController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Amount",
-                        prefixIcon: Icon(Icons.currency_rupee, color: primaryTeal),
+                        prefixIcon: Icon(Icons.currency_rupee, color: colorScheme.primary),
                       ),
                       keyboardType: TextInputType.number,
                     ),
@@ -209,9 +209,9 @@ class _MainHubState extends State<MainHub> {
                       value: selectedCategory,
                       items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                       onChanged: (val) => setDialogState(() => selectedCategory = val!),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: "Category",
-                        prefixIcon: Icon(Icons.category_outlined, color: primaryTeal),
+                        prefixIcon: Icon(Icons.category_outlined, color: colorScheme.primary),
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -219,13 +219,14 @@ class _MainHubState extends State<MainHub> {
                       title: const Text("Is Expense?"),
                       value: isExpense,
                       onChanged: (val) => setDialogState(() => isExpense = val),
-                      activeColor: Colors.redAccent,
-                      inactiveThumbColor: Colors.green,
-                      inactiveTrackColor: Colors.green.withOpacity(0.5),
+                      activeColor: colorScheme.error,
+                      activeThumbColor: colorScheme.error,
+                      inactiveThumbColor: colorScheme.primary, // Usually Income
+                      inactiveTrackColor: colorScheme.primary.withValues(alpha: 0.5),
                     ),
                     ListTile(
                       title: Text("Date: ${DateFormat('dd/MM/yyyy').format(selectedDate)}"),
-                      leading: const Icon(Icons.calendar_today, color: primaryTeal),
+                      leading: Icon(Icons.calendar_today, color: colorScheme.primary),
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
@@ -242,7 +243,7 @@ class _MainHubState extends State<MainHub> {
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.grey))),
+                TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancel", style: TextStyle(color: colorScheme.onSurfaceVariant))),
                 ElevatedButton(
                   onPressed: () async {
                     final title = titleController.text;
@@ -271,11 +272,11 @@ class _MainHubState extends State<MainHub> {
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Row(
+                              title: Row(
                                 children: [
-                                  Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-                                  SizedBox(width: 10),
-                                  Text("Balance Error"),
+                                  Icon(Icons.warning_amber_rounded, color: colorScheme.error),
+                                  const SizedBox(width: 10),
+                                  const Text("Balance Error"),
                                 ],
                               ),
                               content: Text(
@@ -308,15 +309,15 @@ class _MainHubState extends State<MainHub> {
                     if (context.mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Transaction added!"), backgroundColor: primaryTeal),
+                        SnackBar(content: const Text("Transaction added!"), backgroundColor: colorScheme.primary),
                       );
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryTeal,
+                    backgroundColor: colorScheme.primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: const Text("Save", style: TextStyle(color: Colors.white)),
+                  child: Text("Save", style: TextStyle(color: colorScheme.onPrimary)),
                 ),
               ],
             );
@@ -372,23 +373,23 @@ class _MainHubState extends State<MainHub> {
         children: _screens,
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(top: 20), // Adjust this value to control how much it "floats"
+        padding: const EdgeInsets.only(top: 20),
         child: FloatingActionButton(
           onPressed: () => _showManualTransactionDialog(context),
-          backgroundColor: const Color(0xFF006D77),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           elevation: 4,
           shape: const CircleBorder(),
-          child: const Icon(Icons.add, color: Colors.white, size: 30),
+          child: Icon(Icons.add, color: Theme.of(context).colorScheme.onPrimary, size: 30),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
-        surfaceTintColor: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Theme.of(context).colorScheme.surface,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
         elevation: 10,
-        shadowColor: Colors.black.withOpacity(0.4),
+        shadowColor: Colors.black.withValues(alpha: 0.4),
         padding: EdgeInsets.zero,
         child: SizedBox(
           height: 60,
@@ -409,28 +410,28 @@ class _MainHubState extends State<MainHub> {
 
   Widget _buildNavItem(int index, IconData icon, IconData selectedIcon, String label) {
     final isSelected = _selectedIndex == index;
-    const primaryTeal = Color(0xFF006D77);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Expanded(
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => setState(() => _selectedIndex = index),
-          splashColor: primaryTeal.withOpacity(0.15),
-          highlightColor: primaryTeal.withOpacity(0.05),
+          splashColor: colorScheme.primary.withValues(alpha: 0.15),
+          highlightColor: colorScheme.primary.withValues(alpha: 0.05),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 isSelected ? selectedIcon : icon,
-                color: isSelected ? primaryTeal : Colors.grey,
+                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
                 size: 24,
               ),
               const SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? primaryTeal : Colors.grey,
+                  color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
                   fontSize: 10,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),

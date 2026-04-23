@@ -60,6 +60,7 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final profile = authProvider.profile;
+    final colorScheme = Theme.of(context).colorScheme;
     
     // THE LOCK: Calculate exactly once per build cycle
     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -79,11 +80,11 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
           margin: const EdgeInsets.all(20),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(25),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               ),
@@ -96,7 +97,7 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
               const SizedBox(height: 15),
               Text(
                 quiz.question,
-                style: const TextStyle(fontSize: 15, height: 1.4, color: Colors.black87),
+                style: TextStyle(fontSize: 15, height: 1.4, color: colorScheme.onSurface),
               ),
               const SizedBox(height: 20),
               ...List.generate(quiz.options.length, (index) {
@@ -111,21 +112,22 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
   }
 
   Widget _buildHeader(bool isLocked, int points) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
+        Text(
           "Daily FinQuiz",
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: Color(0xFF006D77),
+            color: colorScheme.primary,
           ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: isLocked ? Colors.green[50] : Colors.orange[50],
+            color: isLocked ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(15),
           ),
           child: Text(
@@ -142,28 +144,29 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
   }
 
   Widget _buildFreshOptionButton(QuizModel quiz, int index, bool isLocked) {
+    final colorScheme = Theme.of(context).colorScheme;
     bool isCorrectIndex = index == quiz.correctIndex;
     
     // DEFAULT STATE (Neutral)
-    Color backgroundColor = const Color(0xFFEDF6F9);
+    Color backgroundColor = colorScheme.background;
     Color borderColor = Colors.transparent;
-    Color textColor = Colors.black54;
+    Color textColor = colorScheme.onSurface.withValues(alpha: 0.7);
 
     if (isLocked) {
       if (isCorrectIndex) {
         // UNIVERSAL SUCCESS THEME: Green for correct answer
-        backgroundColor = Colors.green.withOpacity(0.1);
+        backgroundColor = Colors.green.withValues(alpha: 0.1);
         borderColor = Colors.green;
         textColor = Colors.green;
       } else if (index == _activeSessionSelectedIndex) {
         // ACTIVE SESSION ONLY: Red for user error
-        backgroundColor = Colors.red.withOpacity(0.1);
-        borderColor = Colors.red;
-        textColor = Colors.red;
+        backgroundColor = colorScheme.error.withValues(alpha: 0.1);
+        borderColor = colorScheme.error;
+        textColor = colorScheme.error;
       } else {
         // DISABLED STATE: Grey for others
-        backgroundColor = Colors.grey[50]!;
-        textColor = Colors.grey[400]!;
+        backgroundColor = colorScheme.onSurface.withValues(alpha: 0.05);
+        textColor = colorScheme.onSurface.withValues(alpha: 0.3);
       }
     }
 
@@ -200,7 +203,7 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
                 Icon(
                   isCorrectIndex ? Icons.check_circle : Icons.cancel,
                   size: 16,
-                  color: isCorrectIndex ? Colors.green : Colors.red,
+                  color: isCorrectIndex ? Colors.green : colorScheme.error,
                 ),
               ]
             ],
@@ -211,28 +214,29 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
   }
 
   Widget _buildFreshExplanation(String text) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(top: 15),
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: const Color(0xFF006D77).withOpacity(0.05),
+          color: colorScheme.primary.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFF006D77).withOpacity(0.1)),
+          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.lightbulb_outline, size: 16, color: Color(0xFF006D77)),
-                SizedBox(width: 5),
+                Icon(Icons.lightbulb_outline, size: 16, color: colorScheme.primary),
+                const SizedBox(width: 5),
                 Text(
                   "FinTips Explanation",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: Color(0xFF006D77),
+                    color: colorScheme.primary,
                   ),
                 ),
               ],
@@ -242,7 +246,7 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
               text,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.black.withOpacity(0.7),
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
                 height: 1.4,
               ),
             ),
@@ -253,15 +257,16 @@ class _DailyQuizCardState extends State<DailyQuizCard> {
   }
 
   Widget _buildLoadingState() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.all(20),
       height: 200,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(25),
       ),
-      child: const Center(
-        child: CircularProgressIndicator(color: Color(0xFF006D77)),
+      child: Center(
+        child: CircularProgressIndicator(color: colorScheme.primary),
       ),
     );
   }

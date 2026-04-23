@@ -13,10 +13,13 @@ import 'screens/main_hub.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/local_cache_service.dart';
-import 'utils/sms_parser.dart';
-import 'models/transaction.dart';
+import 'services/cloud_service.dart';
+import 'utils/theme/app_theme.dart';
 import 'data/models/profile_model.dart';
 import 'data/models/vault_model.dart';
+import 'data/models/insight_model.dart';
+import 'models/transaction.dart';
+import 'utils/sms_parser.dart';
 
 // --- TOP-LEVEL BACKGROUND HANDLER (MANDATORY FOR TELEPHONY) ---
 @pragma('vm:entry-point')
@@ -31,7 +34,7 @@ void backgroundMessageHandler(SmsMessage message) async {
     Isar isar;
     if (Isar.getInstance() == null) {
       isar = await Isar.open(
-        [ProfileModelSchema, ExpenseTransactionSchema, VaultModelSchema],
+        [ProfileModelSchema, ExpenseTransactionSchema, VaultModelSchema, InsightModelSchema],
         directory: dir.path,
       );
     } else {
@@ -86,10 +89,13 @@ void main() async {
     cacheService: cacheService,
   );
 
+  final cloudService = CloudService();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: cacheService),
+        ChangeNotifierProvider<LocalCacheService>.value(value: cacheService),
+        Provider<CloudService>.value(value: cloudService),
         ChangeNotifierProvider(create: (_) => AuthProvider(userRepository)),
       ],
       child: const MyApp(),
@@ -102,16 +108,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    
     return MaterialApp(
       title: 'Finpath',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-        useMaterial3: true,
-        snackBarTheme: const SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-        ),
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: authProvider.themeMode,
       home: const AuthWrapper(),
     );
   }

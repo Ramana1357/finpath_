@@ -72,61 +72,24 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   bool get wantKeepAlive => true;
 
   @override
-  void initState() {
-    super.initState();
-    _initStream();
-  }
-
-  Future<void> _initStream() async {
-    await _cacheService.init();
-    setState(() {
-      _transactionStream = _cacheService.watchTransactions();
-    });
-  }
-
-  Future<void> _launchURL(String urlString) async {
-    final Uri url = Uri.parse(urlString);
-    try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not launch $urlString')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An error occurred while trying to open the link.')),
-        );
-      }
-    }
-  }
-
-  // --- UI COLORS ---
-  static const Color _primaryTeal = Color(0xFF006D77);
-  static const Color _backgroundGray = Color(0xFFEDF6F9);
-  static const Color _accentTeal = Color(0xFF83C5BE);
-
-  @override
   Widget build(BuildContext context) {
     super.build(context);
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: _backgroundGray,
       body: SafeArea(
         child: CustomScrollView(
           cacheExtent: 1000,
           slivers: [
             SliverToBoxAdapter(child: _buildAppBar(context)),
             const SliverToBoxAdapter(child: DailyQuizCard()),
-            SliverToBoxAdapter(child: _buildSectionHeader("Opportunities for You", false)),
-            SliverToBoxAdapter(child: _buildOpportunitiesList()),
-            SliverToBoxAdapter(child: _buildSectionHeader("Active Scholarships", false)),
-            SliverToBoxAdapter(child: _buildScholarshipsList()),
-            SliverToBoxAdapter(child: _buildSectionHeader("Financial Insights & Tips", false)),
-            _buildDynamicSliverTipsList(),
+            const SliverToBoxAdapter(child: EducationalLinksWidget()),
+            SliverToBoxAdapter(child: _buildSectionHeader(context, "Opportunities for You", false)),
+            SliverToBoxAdapter(child: _buildOpportunitiesList(context)),
+            SliverToBoxAdapter(child: _buildSectionHeader(context, "Active Scholarships", false)),
+            SliverToBoxAdapter(child: _buildScholarshipsList(context)),
+            SliverToBoxAdapter(child: _buildSectionHeader(context, "Financial Insights & Tips", false)),
+            _buildDynamicSliverTipsList(context),
             const SliverPadding(padding: EdgeInsets.only(bottom: 30)),
           ],
         ),
@@ -136,12 +99,12 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
 
   // --- DYNAMIC TIPS SECTION ---
 
-  Widget _buildDynamicSliverTipsList() {
+  Widget _buildDynamicSliverTipsList(BuildContext context) {
     return StreamBuilder<List<FinanceTipModel>>(
       stream: _feedService.getLatestTips(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return SliverToBoxAdapter(child: _buildTipShimmer());
+          return SliverToBoxAdapter(child: _buildTipShimmer(context));
         }
         
         if (snapshot.hasError) {
@@ -168,7 +131,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
           sliver: SliverList(
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                return _buildTipCard(tips[index]);
+                return _buildTipCard(context, tips[index]);
               },
               childCount: tips.length,
             ),
@@ -178,15 +141,16 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildTipCard(FinanceTipModel tip) {
+  Widget _buildTipCard(BuildContext context, FinanceTipModel tip) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(25),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -204,10 +168,10 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                 memCacheWidth: 600, 
                 maxWidthDiskCache: 1000,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(color: Colors.grey[200]),
+                placeholder: (context, url) => Container(color: colorScheme.onSurface.withValues(alpha: 0.1)),
                 errorWidget: (context, url, error) => Container(
-                  color: _accentTeal.withOpacity(0.2),
-                  child: const Icon(Icons.image_not_supported, color: _primaryTeal),
+                  color: colorScheme.secondary.withValues(alpha: 0.2),
+                  child: Icon(Icons.image_not_supported, color: colorScheme.primary),
                 ),
               ),
             ),
@@ -223,15 +187,15 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _primaryTeal.withOpacity(0.1),
+                        color: colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         tip.type.replaceAll('_', ' ').toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: _primaryTeal,
+                          color: colorScheme.primary,
                         ),
                       ),
                     ),
@@ -240,7 +204,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                       style: TextStyle(
                         fontSize: 12,
                         fontStyle: FontStyle.italic,
-                        color: Colors.grey[600],
+                        color: colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -251,7 +215,6 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -260,7 +223,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.5,
-                    color: Colors.black.withOpacity(0.7),
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
@@ -268,16 +231,16 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                 const SizedBox(height: 15),
                 Row(
                   children: [
-                    const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                    Icon(Icons.access_time, size: 14, color: colorScheme.onSurface.withValues(alpha: 0.4)),
                     const SizedBox(width: 5),
                     Text(
                       _getTimeAgo(tip.timestamp),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.4)),
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: () => _showFullTip(tip),
-                      child: const Text("Read More", style: TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                      onPressed: () => _showFullTip(context, tip),
+                      child: Text("Read More", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -297,16 +260,17 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     return "just now";
   }
 
-  void _showFullTip(FinanceTipModel tip) {
+  void _showFullTip(BuildContext context, FinanceTipModel tip) {
+    final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         height: MediaQuery.of(context).size.height * 0.85,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         ),
         child: Column(
           children: [
@@ -314,7 +278,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               margin: const EdgeInsets.only(top: 10),
               width: 40,
               height: 5,
-              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: colorScheme.onSurface.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -324,7 +288,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                   children: [
                     Text(tip.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
-                    Text("Source: ${tip.source}", style: const TextStyle(color: _primaryTeal, fontStyle: FontStyle.italic)),
+                    Text("Source: ${tip.source}", style: TextStyle(color: colorScheme.primary, fontStyle: FontStyle.italic)),
                     const SizedBox(height: 20),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(20),
@@ -336,7 +300,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                     const SizedBox(height: 25),
                     Text(
                       tip.content,
-                      style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.black87),
+                      style: TextStyle(fontSize: 16, height: 1.6, color: colorScheme.onSurface.withValues(alpha: 0.9)),
                     ),
                     const SizedBox(height: 40),
                   ],
@@ -349,21 +313,29 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildTipShimmer() {
+  Widget _buildTipShimmer(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
+        baseColor: colorScheme.surfaceContainerHighest,
+        highlightColor: colorScheme.surface,
         child: Column(
           children: List.generate(2, (index) => Container(
             height: 300,
             margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
+            decoration: BoxDecoration(color: colorScheme.surface, borderRadius: BorderRadius.circular(25)),
           )),
         ),
       ),
     );
+  }
+
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw Exception('Could not launch $url');
+    }
   }
 
   // --- APP BAR ---
@@ -371,6 +343,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   Widget _buildAppBar(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
     final profile = authProvider.profile;
+    final colorScheme = Theme.of(context).colorScheme;
 
     // SAFE ACCESS: Check if name exists before split/indexing
     String initials = 'JD';
@@ -385,9 +358,9 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: _primaryTeal,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
         ),
@@ -395,10 +368,10 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'FINPATH',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -407,7 +380,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_none, color: Colors.white),
+                icon: Icon(Icons.notifications_none, color: colorScheme.onPrimary),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -420,8 +393,8 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
                 },
                 child: CircleAvatar(
-                  backgroundColor: _accentTeal,
-                  child: Text(initials, style: const TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                  backgroundColor: colorScheme.secondary,
+                  child: Text(initials, style: TextStyle(color: colorScheme.onSecondary, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -431,17 +404,18 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildSectionHeader(String title, bool showSeeAll, {VoidCallback? onSeeAll}) {
+  Widget _buildSectionHeader(BuildContext context, String title, bool showSeeAll, {VoidCallback? onSeeAll}) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 25, 20, 15),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _primaryTeal)),
+          Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: colorScheme.primary)),
           if (showSeeAll)
             TextButton(
               onPressed: onSeeAll,
-              child: const Text('See All', style: TextStyle(color: _accentTeal, fontWeight: FontWeight.bold)),
+              child: Text('See All', style: TextStyle(color: colorScheme.secondary, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -450,7 +424,8 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
 
   // --- OPPORTUNITIES SECTION ---
 
-  Widget _buildOpportunitiesList() {
+  Widget _buildOpportunitiesList(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final List<OpportunityModel> _opportunities = [
       OpportunityModel(
         title: "Software Development Intern", 
@@ -484,10 +459,10 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               width: 250,
               margin: const EdgeInsets.only(right: 15),
               padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              decoration: BoxDecoration(color: colorScheme.surface, borderRadius: BorderRadius.circular(20)),
               child: Row(
                 children: [
-                  CircleAvatar(backgroundColor: _backgroundGray, child: Icon(opp.icon, color: _primaryTeal, size: 20)),
+                  CircleAvatar(backgroundColor: colorScheme.onSurface.withValues(alpha: 0.05), child: Icon(opp.icon, color: colorScheme.primary, size: 20)),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Column(
@@ -495,7 +470,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(opp.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        Text(opp.company, style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                        Text(opp.company, style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
                       ],
                     ),
                   ),
@@ -510,13 +485,14 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
 
   // --- SCHOLARSHIPS SECTION ---
 
-  Widget _buildScholarshipsList() {
+  Widget _buildScholarshipsList(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final List<ScholarshipModel> _scholarships = [
       ScholarshipModel(
         title: "National Tech Scholarship", 
         coverage: "Covers 50% Tuition", 
         awardOrDeadline: "Closes in 5 Days", 
-        deadlineColor: Colors.red,
+        deadlineColor: colorScheme.error,
         url: "https://www.buddy4study.com/national-scholarship-portal",
       ),
       ScholarshipModel(
@@ -542,7 +518,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               width: 250,
               margin: const EdgeInsets.only(right: 15),
               padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+              decoration: BoxDecoration(color: colorScheme.surface, borderRadius: BorderRadius.circular(20)),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,6 +531,105 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class EducationalLinksWidget extends StatelessWidget {
+  const EducationalLinksWidget({super.key});
+
+  Future<void> _handleURL(BuildContext context, String url) async {
+    final Uri uri = Uri.parse(url);
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not open the link.")),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildLinkCard(
+              context,
+              title: "Job & Internships",
+              icon: Icons.work_outline,
+              color: colorScheme.primary,
+              onTap: () => _handleURL(context, "https://unstop.com/"),
+            ),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: _buildLinkCard(
+              context,
+              title: "Scholarships",
+              icon: Icons.school_outlined,
+              color: colorScheme.secondary,
+              onTap: () => _handleURL(context, "https://www.buddy4study.com/"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 15),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.1),
+              radius: 25,
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

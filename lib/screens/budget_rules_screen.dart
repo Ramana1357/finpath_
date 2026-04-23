@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/auth_provider.dart';
 import '../data/models/profile_model.dart';
-import 'package:flutter/services.dart';
 import 'dart:io';
 
 class BudgetRulesScreen extends StatefulWidget {
@@ -19,9 +18,6 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
 
   bool _isInitialized = false;
 
-  static const Color _primaryTeal = Color(0xFF006D77);
-  static const Color _backgroundGray = Color(0xFFEDF6F9);
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -37,14 +33,15 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
     
     return Scaffold(
-      backgroundColor: _backgroundGray,
+      backgroundColor: colorScheme.background,
       appBar: AppBar(
-        backgroundColor: _primaryTeal,
-        title: const Text("Budget Rules", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: colorScheme.primary,
+        title: Text("Budget Rules", style: TextStyle(color: colorScheme.onPrimary, fontWeight: FontWeight.bold)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         elevation: 0,
@@ -54,17 +51,18 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "Set Your Allocation Rules",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _primaryTeal),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorScheme.primary),
             ),
             const SizedBox(height: 10),
             Text(
               "Define how your incoming funds should be automatically distributed across your accounts.",
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 30),
             _buildRuleCard(
+              context: context,
               title: "Allowance",
               subtitle: "Daily expenses, food, and transport",
               value: allowance,
@@ -73,6 +71,7 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
             ),
             const SizedBox(height: 20),
             _buildRuleCard(
+              context: context,
               title: "Dream Vault",
               subtitle: "Long-term goals and big purchases",
               value: dreamVault,
@@ -81,6 +80,7 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
             ),
             const SizedBox(height: 20),
             _buildRuleCard(
+              context: context,
               title: "Emergency Provisions",
               subtitle: "Safety net for unexpected costs",
               value: emergency,
@@ -88,7 +88,7 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
               onChanged: (val) => setState(() => emergency = val),
             ),
             const SizedBox(height: 40),
-            _buildTotalCheck(),
+            _buildTotalCheck(context),
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
@@ -111,11 +111,11 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
                             barrierDismissible: false,
                             builder: (context) => AlertDialog(
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                              title: const Row(
+                              title: Row(
                                 children: [
-                                  Icon(Icons.info_outline, color: _primaryTeal),
-                                  SizedBox(width: 10),
-                                  Text("Changes Saved"),
+                                  Icon(Icons.info_outline, color: colorScheme.primary),
+                                  const SizedBox(width: 10),
+                                  const Text("Changes Saved"),
                                 ],
                               ),
                               content: const Text("Budget rules have been updated successfully. To apply these changes, please restart the app."),
@@ -124,7 +124,7 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
                                   onPressed: () {
                                     exit(0);
                                   },
-                                  child: const Text("SHUTDOWN APP", style: TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
+                                  child: Text("SHUTDOWN APP", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.bold)),
                                 ),
                               ],
                             ),
@@ -134,13 +134,14 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
                     }
                   : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _primaryTeal,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  disabledBackgroundColor: Colors.grey,
+                  disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
+                  disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.38),
                 ),
                 child: authProvider.isLoading 
-                  ? const CircularProgressIndicator(color: Colors.white)
+                  ? CircularProgressIndicator(color: colorScheme.onPrimary)
                   : const Text("Save Budget Rules", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
@@ -151,19 +152,21 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
   }
 
   Widget _buildRuleCard({
+    required BuildContext context,
     required String title,
     required String subtitle,
     required double value,
     required IconData icon,
     required ValueChanged<double> onChanged,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))
+          BoxShadow(color: colorScheme.onSurface.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5))
         ],
       ),
       child: Column(
@@ -172,32 +175,32 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: _primaryTeal.withOpacity(0.1),
-                child: Icon(icon, color: _primaryTeal, size: 20),
+                backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
+                child: Icon(icon, color: colorScheme.primary, size: 20),
               ),
               const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text(subtitle, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: colorScheme.onSurface)),
+                    Text(subtitle, style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
                   ],
                 ),
               ),
               Text(
                 "${value.toInt()}%",
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _primaryTeal),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: colorScheme.primary),
               ),
             ],
           ),
           const SizedBox(height: 15),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: _primaryTeal,
-              inactiveTrackColor: _primaryTeal.withOpacity(0.1),
-              thumbColor: _primaryTeal,
-              overlayColor: _primaryTeal.withOpacity(0.2),
+              activeTrackColor: colorScheme.primary,
+              inactiveTrackColor: colorScheme.primary.withValues(alpha: 0.1),
+              thumbColor: colorScheme.primary,
+              overlayColor: colorScheme.primary.withValues(alpha: 0.2),
             ),
             child: Slider(
               value: value,
@@ -212,22 +215,27 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
     );
   }
 
-  Widget _buildTotalCheck() {
+  Widget _buildTotalCheck(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     double total = allowance + dreamVault + emergency;
     bool isValid = total == 100;
+
+    final Color cardColor = isValid ? (colorScheme.primaryContainer) : colorScheme.errorContainer;
+    final Color textColor = isValid ? colorScheme.onPrimaryContainer : colorScheme.onErrorContainer;
+    final Color iconColor = isValid ? colorScheme.primary : colorScheme.error;
 
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: isValid ? Colors.green[50] : Colors.red[50],
+        color: cardColor,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isValid ? Colors.green[200]! : Colors.red[200]!),
+        border: Border.all(color: iconColor.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Icon(
             isValid ? Icons.check_circle_outline : Icons.error_outline,
-            color: isValid ? Colors.green : Colors.red,
+            color: iconColor,
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -237,7 +245,7 @@ class _BudgetRulesScreenState extends State<BudgetRulesScreen> {
                 : "Total must equal 100% (Current: ${total.toInt()}%)",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isValid ? Colors.green[700] : Colors.red[700],
+                color: textColor,
               ),
             ),
           ),

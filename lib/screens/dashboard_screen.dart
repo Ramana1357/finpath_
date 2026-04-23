@@ -49,11 +49,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  // Color Palette
-  static const Color primaryTeal = Color(0xFF006D77);
-  static const Color backgroundGray = Color(0xFFEDF6F9);
-  static const Color accentTeal = Color(0xFF83C5BE);
-
   // --- MATH HELPERS ---
   double _calculateTotalSpentThisMonth(List<ExpenseTransaction> transactions) {
     if (transactions.isEmpty) return 0.0;
@@ -114,8 +109,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: backgroundGray,
+      backgroundColor: colorScheme.background,
       body: SafeArea(
         child: StreamBuilder<List<ExpenseTransaction>>(
           stream: widget.transactionsStream,
@@ -169,6 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildInitialSetupInput(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final profile = authProvider.profile;
+    final colorScheme = Theme.of(context).colorScheme;
 
     // Only show if the profile exists AND they haven't saved their spending targets yet
     if (profile == null || profile.hasSeenInitialSync) {
@@ -182,25 +179,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: primaryTeal.withOpacity(0.1),
+        color: colorScheme.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: primaryTeal.withOpacity(0.3), width: 1),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3), width: 1),
       ),
       child: Form(
         key: _targetFormKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.auto_graph, color: primaryTeal, size: 20),
-                SizedBox(width: 10),
+                Icon(Icons.auto_graph, color: colorScheme.primary, size: 20),
+                const SizedBox(width: 10),
                 Text(
                   'Set Your Spending Targets',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: primaryTeal,
+                    color: colorScheme.primary,
                   ),
                 ),
               ],
@@ -212,7 +209,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Daily Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text('Daily Limit', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 5),
                       TextFormField(
                         controller: dailyController,
@@ -243,7 +240,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Monthly Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text('Monthly Limit', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
                       const SizedBox(height: 5),
                       TextFormField(
                         controller: monthlyController,
@@ -291,8 +288,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   await authProvider.saveProfile(updatedProfile);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryTeal,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
@@ -309,6 +306,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final authProvider = context.read<AuthProvider>();
     final cacheService = context.read<LocalCacheService>();
     final profile = authProvider.profile;
+    final colorScheme = Theme.of(context).colorScheme;
     
     // SAFE ACCESS: Check if name exists before split/indexing
     String initials = 'JD';
@@ -323,9 +321,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: primaryTeal,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
         ),
@@ -333,10 +331,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'FINPATH',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.2,
@@ -353,7 +351,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   return Stack(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.notifications_none, color: Colors.white),
+                        icon: Icon(Icons.notifications_none, color: colorScheme.onPrimary),
                         onPressed: () {
                           Navigator.push(
                             context,
@@ -367,7 +365,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           top: 12,
                           child: Container(
                             padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                            decoration: BoxDecoration(color: colorScheme.error, borderRadius: BorderRadius.circular(6)),
                             constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
                           ),
                         ),
@@ -388,8 +386,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   );
                 },
                 child: CircleAvatar(
-                  backgroundColor: accentTeal,
-                  child: Text(initials, style: const TextStyle(color: primaryTeal, fontWeight: FontWeight.bold)),
+                  backgroundColor: colorScheme.secondary,
+                  child: Text(initials, style: TextStyle(color: colorScheme.onSecondary, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -403,14 +401,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final authProvider = context.read<AuthProvider>();
     final cacheService = context.read<LocalCacheService>();
     final uid = authProvider.user?.uid;
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (uid == null) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildStatsCard('Broke Date', 'N/A', Icons.calendar_today, Colors.red[100]!),
-          _buildStatsCard('Savings', '₹0', Icons.trending_up, Colors.green[100]!),
-          _buildStatsCard('Pts', widget.totalPoints.toString(), Icons.emoji_events_outlined, Colors.orange[100]!),
+          _buildStatsCard('Broke Date', 'N/A', Icons.calendar_today, colorScheme.error.withValues(alpha: 0.1)),
+          _buildStatsCard('Savings', '₹0', Icons.trending_up, colorScheme.primary.withValues(alpha: 0.1)),
+          _buildStatsCard('Pts', widget.totalPoints.toString(), Icons.emoji_events_outlined, colorScheme.secondary.withValues(alpha: 0.1)),
         ],
       );
     }
@@ -430,19 +429,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final double currentAllowance = totalInflowMinusOutflow - lockedSavings - vaultSavings;
         final double dailyLimit = profile?.dailyLimit ?? 1000.0;
         final String brokeDate = _calculateBrokeDate(transactions, currentAllowance, isCrisisMode, lockedSavings, dailyLimit);
-        final Color brokeTextColor = (brokeDate == "BROKE" || brokeDate == "Today") ? Colors.red : primaryTeal;
+        final Color brokeTextColor = (brokeDate == "BROKE" || brokeDate == "Today") ? colorScheme.error : colorScheme.primary;
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildStatsCard('Broke Date', brokeDate, Icons.calendar_today, Colors.red[100]!, textColor: brokeTextColor),
+            _buildStatsCard('Broke Date', brokeDate, Icons.calendar_today, colorScheme.error.withValues(alpha: 0.1), textColor: brokeTextColor),
             GestureDetector(
               onTap: () {
                 if (widget.onSwitchTab != null) {
                   widget.onSwitchTab!(1); // Switch to Vault tab
                 }
               },
-              child: _buildStatsCard('Savings', '₹${totalSavings.toStringAsFixed(0)}', Icons.trending_up, Colors.green[100]!),
+              child: _buildStatsCard('Savings', '₹${totalSavings.toStringAsFixed(0)}', Icons.trending_up, colorScheme.primary.withValues(alpha: 0.1)),
             ),
             GestureDetector(
               onTap: () {
@@ -456,7 +455,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 );
               },
-              child: _buildStatsCard('Pts', widget.totalPoints.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},'), Icons.emoji_events_outlined, Colors.orange[100]!),
+              child: _buildStatsCard('Pts', widget.totalPoints.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},'), Icons.emoji_events_outlined, colorScheme.secondary.withValues(alpha: 0.1)),
             ),
           ],
         );
@@ -607,21 +606,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return (sumY - slope * sumX) / x.length;
   }
 
-  Widget _buildStatsCard(String title, String value, IconData icon, Color iconBg, {Color textColor = primaryTeal}) {
+  Widget _buildStatsCard(String title, String value, IconData icon, Color iconBg, {Color? textColor}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final effectiveTextColor = textColor ?? colorScheme.primary;
+
     return Container(
       width: 105,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.onSurface.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
       ),
       child: Column(
         children: [
-          CircleAvatar(radius: 18, backgroundColor: iconBg, child: Icon(icon, size: 18, color: Colors.black87)),
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: iconBg,
+            child: Icon(icon, size: 18, color: colorScheme.onSurface),
+          ),
           const SizedBox(height: 10),
-          Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor)),
+          Text(title, style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
+          Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: effectiveTextColor)),
         ],
       ),
     );
@@ -631,6 +643,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final authProvider = context.read<AuthProvider>();
     final cacheService = context.read<LocalCacheService>();
     final uid = authProvider.user?.uid;
+    final colorScheme = Theme.of(context).colorScheme;
 
     if (uid == null) return const SizedBox.shrink();
 
@@ -648,17 +661,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Formula: Always show Allowance. 
         final double currentAllowance = totalInflowMinusOutflow - lockedSavings - vaultSavings;
         
-        final Color balanceColor = currentAllowance >= 0 ? (isCrisisMode ? Colors.orange : primaryTeal) : Colors.redAccent;
+        final Color balanceColor = currentAllowance >= 0 ? (isCrisisMode ? colorScheme.error : colorScheme.primary) : colorScheme.error;
 
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(25),
-            border: isCrisisMode ? Border.all(color: Colors.orange, width: 2) : null,
+            border: isCrisisMode ? Border.all(color: colorScheme.error, width: 2) : null,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: colorScheme.onSurface.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 5),
               )
@@ -668,10 +681,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               CircleAvatar(
                 radius: 25,
-                backgroundColor: (isCrisisMode ? Colors.orange : accentTeal).withOpacity(0.2),
+                backgroundColor: (isCrisisMode ? colorScheme.error : colorScheme.secondary).withValues(alpha: 0.2),
                 child: Icon(
                   isCrisisMode ? Icons.emergency_outlined : Icons.account_balance_wallet_outlined, 
-                  color: isCrisisMode ? Colors.orange : primaryTeal, 
+                  color: isCrisisMode ? colorScheme.error : colorScheme.primary, 
                   size: 28
                 ),
               ),
@@ -685,14 +698,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           isCrisisMode ? "CRISIS ALLOWANCE" : "Current Allowance",
                           style: TextStyle(
-                            color: isCrisisMode ? Colors.orange : Colors.blueGrey[400],
+                            color: isCrisisMode ? colorScheme.error : colorScheme.onSurfaceVariant,
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         if (isCrisisMode) ...[
                           const SizedBox(width: 8),
-                          const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
+                          Icon(Icons.warning_amber_rounded, color: colorScheme.error, size: 16),
                         ]
                       ],
                     ),
@@ -716,6 +729,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSwipableCharts(List<ExpenseTransaction> transactions, double monthlyLimit) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         SizedBox(
@@ -742,7 +756,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             height: 8,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _currentPage == index ? primaryTeal : Colors.grey[300],
+              color: _currentPage == index ? colorScheme.primary : colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
             ),
           )),
         ),
@@ -752,11 +766,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildMonthlyOverviewCard(List<ExpenseTransaction> transactions, double monthlyLimit) {
     final double totalSpent = _calculateTotalSpentThisMonth(transactions);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(30),
       ),
       child: Column(
@@ -765,8 +780,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Monthly Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryTeal)),
-              Text('April 2026', style: TextStyle(color: Colors.blueGrey[300])), 
+              Text('Monthly Overview', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary)),
+              Text(DateFormat('MMMM yyyy').format(DateTime.now()), style: TextStyle(color: colorScheme.onSurfaceVariant)), 
             ],
           ),
           const SizedBox(height: 30),
@@ -782,16 +797,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     centerSpaceRadius: 60,
                     sections: [
                       // SAFE ACCESS: Prevent 0 value crash in PieChart
-                      PieChartSectionData(color: primaryTeal, value: totalSpent > 0 ? totalSpent : 0.001, radius: 20, showTitle: false),
-                      PieChartSectionData(color: Colors.grey[200], value: (monthlyLimit - totalSpent) > 0 ? (monthlyLimit - totalSpent) : 0.001, radius: 20, showTitle: false),
+                      PieChartSectionData(color: colorScheme.primary, value: totalSpent > 0 ? totalSpent : 0.001, radius: 20, showTitle: false),
+                      PieChartSectionData(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.1), value: (monthlyLimit - totalSpent) > 0 ? (monthlyLimit - totalSpent) : 0.001, radius: 20, showTitle: false),
                     ],
                   ),
                 ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('₹${(totalSpent / 1000).toStringAsFixed(1)}K', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    Text('of ₹${(monthlyLimit / 1000).toStringAsFixed(1)}K', style: TextStyle(color: Colors.grey[400])),
+                    Text('₹${(totalSpent / 1000).toStringAsFixed(1)}K', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+                    Text('of ₹${(monthlyLimit / 1000).toStringAsFixed(1)}K', style: TextStyle(color: colorScheme.onSurfaceVariant)),
                   ],
                 ),
               ],
@@ -807,11 +822,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildWeeklyBarChartCard(List<ExpenseTransaction> transactions) {
     final dailySpending = _calculateWeeklySpending(transactions);
     final now = DateTime.now();
+    final colorScheme = Theme.of(context).colorScheme;
     
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(30),
       ),
       child: Column(
@@ -820,8 +836,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Weekly Activity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryTeal)),
-              Text('Last 7 Days', style: TextStyle(color: Colors.blueGrey[300])), 
+              Text('Weekly Activity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.primary)),
+              Text('Last 7 Days', style: TextStyle(color: colorScheme.onSurfaceVariant)), 
             ],
           ),
           const SizedBox(height: 25),
@@ -832,11 +848,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 maxY: dailySpending.values.reduce((a, b) => a > b ? a : b) * 1.2,
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => primaryTeal,
+                    getTooltipColor: (_) => colorScheme.primary,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
                         '₹${rod.toY.toStringAsFixed(0)}',
-                        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        TextStyle(color: colorScheme.onPrimary, fontWeight: FontWeight.bold),
                       );
                     },
                   ),
@@ -852,7 +868,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             DateFormat('E').format(date)[0],
-                            style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                         );
                       },
@@ -870,7 +886,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     barRods: [
                       BarChartRodData(
                         toY: entry.value,
-                        color: entry.key == 6 ? primaryTeal : accentTeal,
+                        color: entry.key == 6 ? colorScheme.primary : colorScheme.secondary,
                         width: 16,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                       ),
@@ -881,10 +897,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          const Center(
+          Center(
             child: Text(
               "Swipe left to see monthly pie chart",
-              style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+              style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant, fontStyle: FontStyle.italic),
             ),
           ),
         ],
@@ -893,9 +909,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildLegend() {
+    final colorScheme = Theme.of(context).colorScheme;
     final categories = [
-      {'name': 'Spending', 'color': primaryTeal},
-      {'name': 'Remaining', 'color': Colors.grey[200]},
+      {'name': 'Spending', 'color': colorScheme.primary},
+      {'name': 'Remaining', 'color': colorScheme.onSurfaceVariant.withValues(alpha: 0.1)},
     ];
     return Wrap(
       spacing: 20,
@@ -905,7 +922,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           CircleAvatar(radius: 5, backgroundColor: c['color'] as Color),
           const SizedBox(width: 5),
-          Text(c['name'] as String, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(c['name'] as String, style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
         ],
       )).toList(),
     );
@@ -913,26 +930,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTodaySpendingCard(List<ExpenseTransaction> transactions, double dailyLimit) {
     final double todaySpent = _calculateTotalSpentToday(transactions);
+    final colorScheme = Theme.of(context).colorScheme;
 
     double percent = dailyLimit > 0 ? todaySpent / dailyLimit : 0.0;
     if (percent > 1.0) percent = 1.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(25)),
+      decoration: BoxDecoration(color: colorScheme.surface, borderRadius: BorderRadius.circular(25)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Today\'s Spending', style: TextStyle(color: Colors.blueGrey[300])),
+              Text('Today\'s Spending', style: TextStyle(color: colorScheme.onSurfaceVariant)),
               const SizedBox(height: 5),
               RichText(
                 text: TextSpan(
                   children: [
-                    TextSpan(text: '₹${todaySpent.toStringAsFixed(0)} ', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black)),
-                    TextSpan(text: '/ ₹${dailyLimit.toStringAsFixed(0)} limit', style: const TextStyle(color: Colors.grey)),
+                    TextSpan(text: '₹${todaySpent.toStringAsFixed(0)} ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+                    TextSpan(text: '/ ₹${dailyLimit.toStringAsFixed(0)} limit', style: TextStyle(color: colorScheme.onSurfaceVariant)),
                   ],
                 ),
               ),
@@ -942,9 +960,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             radius: 30.0,
             lineWidth: 8.0,
             percent: percent,
-            center: Text("${(percent * 100).toStringAsFixed(0)}%", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            progressColor: primaryTeal,
-            backgroundColor: backgroundGray,
+            center: Text("${(percent * 100).toStringAsFixed(0)}%", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+            progressColor: colorScheme.primary,
+            backgroundColor: colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
             circularStrokeCap: CircularStrokeCap.round,
           ),
         ],
@@ -953,9 +971,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRecentExpensesSection(BuildContext context, List<ExpenseTransaction> transactions) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(25),
       ),
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -966,7 +985,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                Text('Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: colorScheme.onSurface)),
                 GestureDetector(
                   onTap: () {
                     Navigator.push(
@@ -974,19 +993,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       MaterialPageRoute(builder: (context) => const AllTransactionsScreen()),
                     );
                   },
-                  child: const Text("View All", style: TextStyle(color: primaryTeal, fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: Text("View All", style: TextStyle(color: colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
           ),
           if (transactions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
               child: Column(
                 children: [
-                  Icon(Icons.receipt_long_outlined, size: 40, color: Colors.grey),
-                  SizedBox(height: 10),
-                  Text("No transactions logged yet.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  Icon(Icons.receipt_long_outlined, size: 40, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(height: 10),
+                  Text("No transactions logged yet.", style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13)),
                 ],
               ),
             )
@@ -1000,8 +1019,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                 final bool isExpense = tx.isExpense;
                 final String sign = isExpense ? '-' : '+';
-                final Color amountColor = isExpense ? Colors.redAccent : Colors.green;
-                final Color avatarBgColor = isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1);
+                final Color amountColor = isExpense ? colorScheme.error : colorScheme.primary;
+                final Color avatarBgColor = isExpense ? colorScheme.error.withValues(alpha: 0.1) : colorScheme.primary.withValues(alpha: 0.1);
                 final IconData txIcon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
 
                 return ListTile(
@@ -1009,10 +1028,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       backgroundColor: avatarBgColor,
                       child: Icon(txIcon, color: amountColor, size: 20)
                   ),
-                  title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(tx.title, style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
                   subtitle: Text(
                       isExpense ? 'Debit' : 'Credit',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12)
+                      style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)
                   ),
                   trailing: Text(
                       '$sign ₹${tx.amount.toStringAsFixed(2)}',
