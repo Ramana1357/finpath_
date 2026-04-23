@@ -131,8 +131,11 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
               }
             }
 
-            // Savings is what remains from ACTUAL income
-            double savingsTotal = actualIncome - (needsTotal + wantsTotal);
+            // Savings is what remains from ACTUAL income if logged, otherwise 0
+            // (Don't use effectiveAllowance here to avoid showing default 30k as savings)
+            double savingsTotal = (actualIncome > 0) 
+                ? actualIncome - (needsTotal + wantsTotal) 
+                : 0.0;
             if (savingsTotal < 0) savingsTotal = 0;
 
             // Unassigned for Zero-Based strategy
@@ -144,19 +147,28 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
             final double wantsRatio = (effectiveAllowance > 0 ? (wantsTotal / effectiveAllowance) : 0.0);
             final double savingsRatio = (effectiveAllowance > 0 ? (savingsTotal / effectiveAllowance) : 0.0);
 
-            // Health Score Calculation
-            double needsPct = needsRatio * 100;
-            double wantsPct = wantsRatio * 100;
-            double savingsPct = savingsRatio * 100;
+            final double needsPct = needsRatio * 100;
+            final double wantsPct = wantsRatio * 100;
+            final double savingsPct = savingsRatio * 100;
 
-            double healthScore = 100;
+            // Health Score Calculation
+            double healthScore = 100.0;
+            // Calculate base spending impact (1% spent = -1 point)
+            double totalSpentPct = (effectiveAllowance > 0) ? ((needsTotal + wantsTotal) / effectiveAllowance) * 100 : 0.0;
+
             if (expenses.isNotEmpty || actualIncome > 0) {
-              // Deduct for overspending relative to dynamic targets
+              healthScore -= totalSpentPct;
+
+              // Extra penalties for overspending relative to dynamic targets
               if (needsPct > nTarget) healthScore -= (needsPct - nTarget) * 1.5;
               if (wantsPct > wTarget) healthScore -= (wantsPct - wTarget) * 1.0;
-              if (savingsPct < sTarget) healthScore -= (sTarget - savingsPct) * 2.0;
+              
+              // Penalty for low savings if actual income is present
+              if (actualIncome > 0 && savingsPct < sTarget) {
+                healthScore -= (sTarget - savingsPct) * 0.5;
+              }
             } else {
-              healthScore = 100;
+              healthScore = 100.0;
             }
             
             healthScore = healthScore.clamp(0.0, 100.0);

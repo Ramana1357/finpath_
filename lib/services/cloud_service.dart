@@ -9,8 +9,8 @@ class CloudService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   
-  // Bridge to Python/Kotlin
-  static const _pythonChannel = MethodChannel('com.finpath.python');
+  // Bridge to Python/Kotlin - REMOVED (Legacy)
+  // static const _pythonChannel = MethodChannel('com.finpath.python');
   
   // Stream of transactions from Firestore for the current user
   Stream<List<ExpenseTransaction>> getTransactionsStream() {
@@ -35,7 +35,8 @@ class CloudService {
         });
   }
 
-  // Stream of insights
+  // Stream of insights - REMOVED (Legacy AI)
+  /*
   Stream<Map<String, dynamic>?> getInsightsStream() {
     String? uid = _auth.currentUser?.uid;
     if (uid == null) return Stream.value(null);
@@ -45,6 +46,7 @@ class CloudService {
       return doc.data();
     });
   }
+  */
 
   Future<String?> getUserId() async {
     return _auth.currentUser?.uid;
