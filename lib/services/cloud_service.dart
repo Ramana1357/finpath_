@@ -50,18 +50,6 @@ class CloudService {
     return _auth.currentUser?.uid;
   }
 
-  /// Trigger analysis based on recent activity (Automatic)
-  Future<void> updatePhysicalCash(double amount) async {
-    // ... logic remains same, but trigger auto analysis after audit
-    String? uid = _auth.currentUser?.uid;
-    if (uid == null) return;
-    await _db.collection('audits').doc(uid).set({'cash_on_hand': amount, 'last_updated': FieldValue.serverTimestamp()});
-    // Trigger analysis with the current transactions
-    final snapshot = await _db.collection('transactions').where('userId', isEqualTo: uid).get();
-    final txs = snapshot.docs.map((doc) => ExpenseTransaction.fromFirestore(doc.data())).toList();
-    // Analysis is now handled by the backend
-  }
-
   Future<void> updateUserProfile(String name, String bio) async {
     String? uid = _auth.currentUser?.uid;
     if (uid == null) return;

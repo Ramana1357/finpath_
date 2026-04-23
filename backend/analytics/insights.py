@@ -140,21 +140,6 @@ def calculate_insights(user_id):
             if t.get('amount', 0) > threshold:
                 anomalies.append({"title": t.get('title'), "amount": t.get('amount'), "date": t.get('date')})
 
-    db = get_db()
-    audit_doc = db.collection("audits").document(user_id).get()
-    physical_cash_reported = audit_doc.to_dict().get('cash_on_hand', 0) if audit_doc.exists else 0
-    expected_balance = total_income - total_spent
-    leakage = max(0, expected_balance - physical_cash_reported)
-    
-    if leakage > 0:
-        top_categories.append({
-            "category": "Unaccounted (Cash)", 
-            "amount": float(leakage), 
-            "percentage": round((leakage / total_income) * 100, 2) if total_income > 0 else 0
-        })
-        if total_income > 0:
-            health_score = max(0, health_score - int((leakage / total_income) * 50))
-
     feed_summaries = get_ai_summaries(health_score, top_categories, anomalies)
 
     return {
@@ -163,7 +148,6 @@ def calculate_insights(user_id):
         "health_score": health_score,
         "anomalies": anomalies,
         "feed_summaries": feed_summaries,
-        "physical_cash_balance": float(physical_cash_reported),
         "lastUpdated": datetime.now()
     }
 

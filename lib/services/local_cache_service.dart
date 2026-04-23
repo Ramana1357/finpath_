@@ -66,34 +66,53 @@ class LocalCacheService extends ChangeNotifier {
   Future<void> saveTransaction(ExpenseTransaction transaction) async {
     try {
       await isar.writeTxn(() async {
+        await isar.expenseTransactions.put(transaction);
+
+        // If it's an expense, we need to ensure our savings totals don't exceed our actual balance
         if (transaction.isExpense) {
           final profile = await isar.profileModels.where().findFirst();
-          if (profile != null && profile.isCrisisMode) {
+          if (profile != null) {
             final allTxs = await isar.expenseTransactions.where().findAll();
-            double totalInflow = 0;
-            double totalOutflow = 0;
+            double totalNet = 0;
             for (var tx in allTxs) {
-              if (tx.isExpense) totalOutflow += tx.amount;
-              else totalInflow += tx.amount;
+              totalNet += tx.isExpense ? -tx.amount : tx.amount;
             }
 
-            final double currentAllowance = totalInflow - totalOutflow - profile.totalLockedSavings - profile.totalVaultSavings;
+            double currentLocked = profile.totalLockedSavings;
+            double currentVault = profile.totalVaultSavings;
+            double totalSavings = currentLocked + currentVault;
 
-            if (currentAllowance < 0) {
-              final double deficit = currentAllowance.abs();
-              final double amountToTake = deficit > profile.totalLockedSavings ? profile.totalLockedSavings : deficit;
+            // If actual balance is less than what we claim to have in savings,
+            // it means we've spent into our savings. We must reconcile.
+            if (totalNet < totalSavings) {
+              double reconciledSavings = totalNet.clamp(0.0, double.infinity);
+              double deficit = totalSavings - reconciledSavings;
 
-              if (amountToTake > 0) {
-                final updatedProfile = profile.copyWith(
-                  totalLockedSavings: (profile.totalLockedSavings - amountToTake).clamp(0.0, double.infinity),
-                  updatedAt: DateTime.now(),
-                );
-                await isar.profileModels.put(updatedProfile);
+              double newLocked = currentLocked;
+              double newVault = currentVault;
+
+              if (deficit > 0) {
+                // 1. Take from Locked Savings first
+                double takeFromLocked = deficit > currentLocked ? currentLocked : deficit;
+                newLocked -= takeFromLocked;
+                double remainingDeficit = deficit - takeFromLocked;
+
+                // 2. Take from Vault Savings if still in deficit
+                if (remainingDeficit > 0) {
+                  double takeFromVault = remainingDeficit > currentVault ? currentVault : remainingDeficit;
+                  newVault -= takeFromVault;
+                }
               }
+
+              final updatedProfile = profile.copyWith(
+                totalLockedSavings: newLocked,
+                totalVaultSavings: newVault,
+                updatedAt: DateTime.now(),
+              );
+              await isar.profileModels.put(updatedProfile);
             }
           }
         }
-        await isar.expenseTransactions.put(transaction);
       });
     } catch (e) {
       debugPrint("Error saving transaction: $e");
@@ -103,6 +122,15 @@ class LocalCacheService extends ChangeNotifier {
 
   Future<List<ExpenseTransaction>> getAllTransactions() async {
     return await isar.expenseTransactions.where().sortByDateDesc().findAll();
+  }
+
+  Future<double> getTotalNetBalance() async {
+    final allTxs = await isar.expenseTransactions.where().findAll();
+    double totalNet = 0;
+    for (var tx in allTxs) {
+      totalNet += tx.isExpense ? -tx.amount : tx.amount;
+    }
+    return totalNet;
   }
 
   Stream<List<ExpenseTransaction>> watchTransactions() {

@@ -44,11 +44,11 @@ void backgroundMessageHandler(SmsMessage message) async {
     // 3. Save if valid
     if (parsed.amount > 0) {
       final newTx = ExpenseTransaction(
-        title: parsed.isExpense ? "Auto-Log (Background)" : "Income-Log (Background)",
+        title: parsed.title,
         amount: parsed.amount,
         date: DateTime.now(),
         isExpense: parsed.isExpense,
-        category: 'SMS Auto-Log',
+        category: parsed.category,
         smsRawText: body,
       );
 
@@ -108,6 +108,9 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.teal,
         useMaterial3: true,
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+        ),
       ),
       home: const AuthWrapper(),
     );
@@ -122,11 +125,18 @@ class AuthWrapper extends StatelessWidget {
     final authProvider = context.watch<AuthProvider>();
 
     if (!authProvider.isAuthenticated) return const AuthScreen();
-    if (!authProvider.isBiometricAuthenticated) return const BiometricAuthScreen();
+    
     if (authProvider.isLoading && !authProvider.hasProfile) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    
     if (!authProvider.hasProfile) return const ProfileSetupScreen();
+
+    // Only force biometric screen if enabled in profile AND not yet authenticated in this session
+    final bool isBiometricEnabled = authProvider.profile?.biometricEnabled ?? false;
+    if (isBiometricEnabled && !authProvider.isBiometricAuthenticated) {
+      return const BiometricAuthScreen();
+    }
 
     return const MainHub();
   }

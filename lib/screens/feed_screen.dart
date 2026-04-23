@@ -458,7 +458,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
         salaryOrBadge: "₹25,000/mo", 
         type: "Intern", 
         icon: Icons.work_outline,
-        url: "https://unstop.com/",
+        url: "https://unstop.com/internships?search=software%20development",
       ),
       OpportunityModel(
         title: "Data Analyst Intern", 
@@ -466,7 +466,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
         salaryOrBadge: "Remote", 
         type: "Remote", 
         icon: Icons.work_outline,
-        url: "https://unstop.com/",
+        url: "https://unstop.com/internships?search=data%20analyst",
       ),
     ];
 
@@ -517,14 +517,14 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
         coverage: "Covers 50% Tuition", 
         awardOrDeadline: "Closes in 5 Days", 
         deadlineColor: Colors.red,
-        url: "https://scholarships.gov.in/",
+        url: "https://www.buddy4study.com/national-scholarship-portal",
       ),
       ScholarshipModel(
         title: "Women in STEM Grant", 
         coverage: "₹50,000 Award", 
         awardOrDeadline: "₹50,000 Award", 
         deadlineColor: Colors.orange,
-        url: "https://scholarships.gov.in/",
+        url: "https://www.buddy4study.com/scholarship/women-in-stem-scholarship",
       ),
     ];
 

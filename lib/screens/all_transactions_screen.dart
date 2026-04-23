@@ -15,6 +15,7 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
 
   static const Color primaryTeal = Color(0xFF006D77);
   static const Color backgroundGray = Color(0xFFEDF6F9);
+  static const Color accentTeal = Color(0xFF83C5BE);
 
   @override
   void initState() {
@@ -60,35 +61,57 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             itemCount: transactions.length,
             itemBuilder: (context, index) {
               final tx = transactions[index];
               final bool isExpense = tx.isExpense;
               final String sign = isExpense ? '-' : '+';
-              final Color amountColor = isExpense ? Colors.redAccent : Colors.green;
-              final Color avatarBgColor = isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1);
+              final Color amountColor = isExpense ? const Color(0xFFE29578) : primaryTeal;
+              final Color avatarBgColor = isExpense ? const Color(0xFFE29578).withOpacity(0.1) : primaryTeal.withOpacity(0.1);
               final IconData txIcon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: ListTile(
-                  leading: CircleAvatar(
-                      backgroundColor: avatarBgColor,
-                      child: Icon(txIcon, color: amountColor, size: 20)
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: avatarBgColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(txIcon, color: amountColor, size: 22),
                   ),
-                  title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                      '${tx.date.day}/${tx.date.month}/${tx.date.year} • ${tx.category}',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12)
+                  title: Text(
+                    tx.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2D3142)),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${tx.date.day} ${_getMonthName(tx.date.month)} • ${tx.category}',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
                   ),
                   trailing: Text(
-                      '$sign ₹${tx.amount.toStringAsFixed(2)}',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: amountColor, fontSize: 15)
+                    '$sign ₹${tx.amount.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: amountColor,
+                      fontSize: 17,
+                    ),
                   ),
                 ),
               );
@@ -97,5 +120,10 @@ class _AllTransactionsScreenState extends State<AllTransactionsScreen> {
         },
       ),
     );
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
   }
 }

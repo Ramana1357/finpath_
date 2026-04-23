@@ -57,85 +57,115 @@ const ProfileModelSchema = CollectionSchema(
       name: r'emergencyPercent',
       type: IsarType.long,
     ),
-    r'financialDetails': PropertySchema(
+    r'envelopeLimitsJson': PropertySchema(
       id: 8,
+      name: r'envelopeLimitsJson',
+      type: IsarType.string,
+    ),
+    r'financialDetails': PropertySchema(
+      id: 9,
       name: r'financialDetails',
       type: IsarType.string,
     ),
     r'gender': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'gender',
       type: IsarType.string,
     ),
     r'hasSeenInitialSync': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'hasSeenInitialSync',
       type: IsarType.bool,
     ),
     r'isCrisisMode': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'isCrisisMode',
       type: IsarType.bool,
     ),
     r'lastQuizDate': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'lastQuizDate',
       type: IsarType.string,
     ),
     r'lifetimePoints': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'lifetimePoints',
       type: IsarType.long,
     ),
+    r'monthlyAllowance': PropertySchema(
+      id: 15,
+      name: r'monthlyAllowance',
+      type: IsarType.double,
+    ),
     r'monthlyLimit': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'monthlyLimit',
       type: IsarType.double,
     ),
     r'name': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'name',
       type: IsarType.string,
     ),
+    r'needsTarget': PropertySchema(
+      id: 18,
+      name: r'needsTarget',
+      type: IsarType.double,
+    ),
     r'phoneNo': PropertySchema(
-      id: 16,
+      id: 19,
       name: r'phoneNo',
       type: IsarType.string,
     ),
+    r'profilePictureUrl': PropertySchema(
+      id: 20,
+      name: r'profilePictureUrl',
+      type: IsarType.string,
+    ),
     r'qualification': PropertySchema(
-      id: 17,
+      id: 21,
       name: r'qualification',
       type: IsarType.string,
     ),
     r'quizStatus': PropertySchema(
-      id: 18,
+      id: 22,
       name: r'quizStatus',
       type: IsarType.string,
     ),
+    r'savingsTarget': PropertySchema(
+      id: 23,
+      name: r'savingsTarget',
+      type: IsarType.double,
+    ),
     r'smsTrackingEnabled': PropertySchema(
-      id: 19,
+      id: 24,
       name: r'smsTrackingEnabled',
       type: IsarType.bool,
     ),
     r'totalLockedSavings': PropertySchema(
-      id: 20,
+      id: 25,
       name: r'totalLockedSavings',
       type: IsarType.double,
     ),
     r'totalVaultSavings': PropertySchema(
-      id: 21,
+      id: 26,
       name: r'totalVaultSavings',
       type: IsarType.double,
     ),
     r'uid': PropertySchema(
-      id: 22,
+      id: 27,
       name: r'uid',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 23,
+      id: 28,
       name: r'updatedAt',
       type: IsarType.dateTime,
+    ),
+    r'wantsTarget': PropertySchema(
+      id: 29,
+      name: r'wantsTarget',
+      type: IsarType.double,
     )
   },
   estimateSize: _profileModelEstimateSize,
@@ -178,6 +208,12 @@ int _profileModelEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.envelopeLimitsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.financialDetails.length * 3;
   bytesCount += 3 + object.gender.length * 3;
   {
@@ -189,6 +225,12 @@ int _profileModelEstimateSize(
   bytesCount += 3 + object.name.length * 3;
   {
     final value = object.phoneNo;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.profilePictureUrl;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -213,22 +255,28 @@ void _profileModelSerialize(
   writer.writeLong(offsets[5], object.dreamVaultPercent);
   writer.writeString(offsets[6], object.email);
   writer.writeLong(offsets[7], object.emergencyPercent);
-  writer.writeString(offsets[8], object.financialDetails);
-  writer.writeString(offsets[9], object.gender);
-  writer.writeBool(offsets[10], object.hasSeenInitialSync);
-  writer.writeBool(offsets[11], object.isCrisisMode);
-  writer.writeString(offsets[12], object.lastQuizDate);
-  writer.writeLong(offsets[13], object.lifetimePoints);
-  writer.writeDouble(offsets[14], object.monthlyLimit);
-  writer.writeString(offsets[15], object.name);
-  writer.writeString(offsets[16], object.phoneNo);
-  writer.writeString(offsets[17], object.qualification);
-  writer.writeString(offsets[18], object.quizStatus);
-  writer.writeBool(offsets[19], object.smsTrackingEnabled);
-  writer.writeDouble(offsets[20], object.totalLockedSavings);
-  writer.writeDouble(offsets[21], object.totalVaultSavings);
-  writer.writeString(offsets[22], object.uid);
-  writer.writeDateTime(offsets[23], object.updatedAt);
+  writer.writeString(offsets[8], object.envelopeLimitsJson);
+  writer.writeString(offsets[9], object.financialDetails);
+  writer.writeString(offsets[10], object.gender);
+  writer.writeBool(offsets[11], object.hasSeenInitialSync);
+  writer.writeBool(offsets[12], object.isCrisisMode);
+  writer.writeString(offsets[13], object.lastQuizDate);
+  writer.writeLong(offsets[14], object.lifetimePoints);
+  writer.writeDouble(offsets[15], object.monthlyAllowance);
+  writer.writeDouble(offsets[16], object.monthlyLimit);
+  writer.writeString(offsets[17], object.name);
+  writer.writeDouble(offsets[18], object.needsTarget);
+  writer.writeString(offsets[19], object.phoneNo);
+  writer.writeString(offsets[20], object.profilePictureUrl);
+  writer.writeString(offsets[21], object.qualification);
+  writer.writeString(offsets[22], object.quizStatus);
+  writer.writeDouble(offsets[23], object.savingsTarget);
+  writer.writeBool(offsets[24], object.smsTrackingEnabled);
+  writer.writeDouble(offsets[25], object.totalLockedSavings);
+  writer.writeDouble(offsets[26], object.totalVaultSavings);
+  writer.writeString(offsets[27], object.uid);
+  writer.writeDateTime(offsets[28], object.updatedAt);
+  writer.writeDouble(offsets[29], object.wantsTarget);
 }
 
 ProfileModel _profileModelDeserialize(
@@ -246,22 +294,28 @@ ProfileModel _profileModelDeserialize(
     dreamVaultPercent: reader.readLongOrNull(offsets[5]) ?? 30,
     email: reader.readStringOrNull(offsets[6]),
     emergencyPercent: reader.readLongOrNull(offsets[7]) ?? 20,
-    financialDetails: reader.readString(offsets[8]),
-    gender: reader.readString(offsets[9]),
-    hasSeenInitialSync: reader.readBoolOrNull(offsets[10]) ?? false,
-    isCrisisMode: reader.readBoolOrNull(offsets[11]) ?? false,
-    lastQuizDate: reader.readStringOrNull(offsets[12]),
-    lifetimePoints: reader.readLongOrNull(offsets[13]) ?? 0,
-    monthlyLimit: reader.readDoubleOrNull(offsets[14]) ?? 30000.0,
-    name: reader.readString(offsets[15]),
-    phoneNo: reader.readStringOrNull(offsets[16]),
-    qualification: reader.readString(offsets[17]),
-    quizStatus: reader.readStringOrNull(offsets[18]) ?? "new",
-    smsTrackingEnabled: reader.readBoolOrNull(offsets[19]) ?? true,
-    totalLockedSavings: reader.readDoubleOrNull(offsets[20]) ?? 0.0,
-    totalVaultSavings: reader.readDoubleOrNull(offsets[21]) ?? 0.0,
-    uid: reader.readString(offsets[22]),
-    updatedAt: reader.readDateTime(offsets[23]),
+    envelopeLimitsJson: reader.readStringOrNull(offsets[8]),
+    financialDetails: reader.readString(offsets[9]),
+    gender: reader.readString(offsets[10]),
+    hasSeenInitialSync: reader.readBoolOrNull(offsets[11]) ?? false,
+    isCrisisMode: reader.readBoolOrNull(offsets[12]) ?? false,
+    lastQuizDate: reader.readStringOrNull(offsets[13]),
+    lifetimePoints: reader.readLongOrNull(offsets[14]) ?? 0,
+    monthlyAllowance: reader.readDoubleOrNull(offsets[15]) ?? 30000.0,
+    monthlyLimit: reader.readDoubleOrNull(offsets[16]) ?? 30000.0,
+    name: reader.readString(offsets[17]),
+    needsTarget: reader.readDoubleOrNull(offsets[18]) ?? 50.0,
+    phoneNo: reader.readStringOrNull(offsets[19]),
+    profilePictureUrl: reader.readStringOrNull(offsets[20]),
+    qualification: reader.readString(offsets[21]),
+    quizStatus: reader.readStringOrNull(offsets[22]) ?? "new",
+    savingsTarget: reader.readDoubleOrNull(offsets[23]) ?? 20.0,
+    smsTrackingEnabled: reader.readBoolOrNull(offsets[24]) ?? true,
+    totalLockedSavings: reader.readDoubleOrNull(offsets[25]) ?? 0.0,
+    totalVaultSavings: reader.readDoubleOrNull(offsets[26]) ?? 0.0,
+    uid: reader.readString(offsets[27]),
+    updatedAt: reader.readDateTime(offsets[28]),
+    wantsTarget: reader.readDoubleOrNull(offsets[29]) ?? 30.0,
   );
   object.id = id;
   return object;
@@ -291,37 +345,49 @@ P _profileModelDeserializeProp<P>(
     case 7:
       return (reader.readLongOrNull(offset) ?? 20) as P;
     case 8:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readBoolOrNull(offset) ?? false) as P;
+      return (reader.readString(offset)) as P;
     case 11:
       return (reader.readBoolOrNull(offset) ?? false) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset) ?? false) as P;
     case 13:
-      return (reader.readLongOrNull(offset) ?? 0) as P;
-    case 14:
-      return (reader.readDoubleOrNull(offset) ?? 30000.0) as P;
-    case 15:
-      return (reader.readString(offset)) as P;
-    case 16:
       return (reader.readStringOrNull(offset)) as P;
+    case 14:
+      return (reader.readLongOrNull(offset) ?? 0) as P;
+    case 15:
+      return (reader.readDoubleOrNull(offset) ?? 30000.0) as P;
+    case 16:
+      return (reader.readDoubleOrNull(offset) ?? 30000.0) as P;
     case 17:
       return (reader.readString(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset) ?? "new") as P;
+      return (reader.readDoubleOrNull(offset) ?? 50.0) as P;
     case 19:
-      return (reader.readBoolOrNull(offset) ?? true) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 20:
-      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 21:
-      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
-    case 22:
       return (reader.readString(offset)) as P;
+    case 22:
+      return (reader.readStringOrNull(offset) ?? "new") as P;
     case 23:
+      return (reader.readDoubleOrNull(offset) ?? 20.0) as P;
+    case 24:
+      return (reader.readBoolOrNull(offset) ?? true) as P;
+    case 25:
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
+    case 26:
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
+    case 27:
+      return (reader.readString(offset)) as P;
+    case 28:
       return (reader.readDateTime(offset)) as P;
+    case 29:
+      return (reader.readDoubleOrNull(offset) ?? 30.0) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -1028,6 +1094,160 @@ extension ProfileModelQueryFilter
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'envelopeLimitsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'envelopeLimitsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'envelopeLimitsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'envelopeLimitsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'envelopeLimitsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'envelopeLimitsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'envelopeLimitsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'envelopeLimitsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'envelopeLimitsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'envelopeLimitsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'envelopeLimitsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      envelopeLimitsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'envelopeLimitsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
       financialDetailsEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1582,6 +1802,72 @@ extension ProfileModelQueryFilter
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyAllowanceEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'monthlyAllowance',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyAllowanceGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'monthlyAllowance',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyAllowanceLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'monthlyAllowance',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      monthlyAllowanceBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'monthlyAllowance',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
       monthlyLimitEqualTo(
     double value, {
     double epsilon = Query.epsilon,
@@ -1782,6 +2068,72 @@ extension ProfileModelQueryFilter
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      needsTargetEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'needsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      needsTargetGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'needsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      needsTargetLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'needsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      needsTargetBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'needsTarget',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
       phoneNoIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1930,6 +2282,160 @@ extension ProfileModelQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'phoneNo',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'profilePictureUrl',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'profilePictureUrl',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'profilePictureUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'profilePictureUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'profilePictureUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'profilePictureUrl',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'profilePictureUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'profilePictureUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'profilePictureUrl',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'profilePictureUrl',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'profilePictureUrl',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      profilePictureUrlIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'profilePictureUrl',
         value: '',
       ));
     });
@@ -2203,6 +2709,72 @@ extension ProfileModelQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'quizStatus',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      savingsTargetEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'savingsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      savingsTargetGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'savingsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      savingsTargetLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'savingsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      savingsTargetBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'savingsTarget',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
       ));
     });
   }
@@ -2536,6 +3108,72 @@ extension ProfileModelQueryFilter
       ));
     });
   }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      wantsTargetEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'wantsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      wantsTargetGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'wantsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      wantsTargetLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'wantsTarget',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterFilterCondition>
+      wantsTargetBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'wantsTarget',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
 }
 
 extension ProfileModelQueryObject
@@ -2652,6 +3290,20 @@ extension ProfileModelQuerySortBy
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByEnvelopeLimitsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'envelopeLimitsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByEnvelopeLimitsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'envelopeLimitsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
       sortByFinancialDetails() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'financialDetails', Sort.asc);
@@ -2731,6 +3383,20 @@ extension ProfileModelQuerySortBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByMonthlyAllowance() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyAllowance', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByMonthlyAllowanceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyAllowance', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByMonthlyLimit() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'monthlyLimit', Sort.asc);
@@ -2756,6 +3422,19 @@ extension ProfileModelQuerySortBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByNeedsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsTarget', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByNeedsTargetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsTarget', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByPhoneNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'phoneNo', Sort.asc);
@@ -2765,6 +3444,20 @@ extension ProfileModelQuerySortBy
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByPhoneNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'phoneNo', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByProfilePictureUrl() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'profilePictureUrl', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByProfilePictureUrlDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'profilePictureUrl', Sort.desc);
     });
   }
 
@@ -2791,6 +3484,19 @@ extension ProfileModelQuerySortBy
       sortByQuizStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'quizStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortBySavingsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savingsTarget', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortBySavingsTargetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savingsTarget', Sort.desc);
     });
   }
 
@@ -2857,6 +3563,19 @@ extension ProfileModelQuerySortBy
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> sortByWantsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wantsTarget', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      sortByWantsTargetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wantsTarget', Sort.desc);
     });
   }
 }
@@ -2969,6 +3688,20 @@ extension ProfileModelQuerySortThenBy
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByEnvelopeLimitsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'envelopeLimitsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByEnvelopeLimitsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'envelopeLimitsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
       thenByFinancialDetails() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'financialDetails', Sort.asc);
@@ -3060,6 +3793,20 @@ extension ProfileModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByMonthlyAllowance() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyAllowance', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByMonthlyAllowanceDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'monthlyAllowance', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByMonthlyLimit() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'monthlyLimit', Sort.asc);
@@ -3085,6 +3832,19 @@ extension ProfileModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByNeedsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsTarget', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByNeedsTargetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'needsTarget', Sort.desc);
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByPhoneNo() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'phoneNo', Sort.asc);
@@ -3094,6 +3854,20 @@ extension ProfileModelQuerySortThenBy
   QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByPhoneNoDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'phoneNo', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByProfilePictureUrl() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'profilePictureUrl', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByProfilePictureUrlDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'profilePictureUrl', Sort.desc);
     });
   }
 
@@ -3120,6 +3894,19 @@ extension ProfileModelQuerySortThenBy
       thenByQuizStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'quizStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenBySavingsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savingsTarget', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenBySavingsTargetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'savingsTarget', Sort.desc);
     });
   }
 
@@ -3188,6 +3975,19 @@ extension ProfileModelQuerySortThenBy
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
   }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy> thenByWantsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wantsTarget', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QAfterSortBy>
+      thenByWantsTargetDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'wantsTarget', Sort.desc);
+    });
+  }
 }
 
 extension ProfileModelQueryWhereDistinct
@@ -3246,6 +4046,14 @@ extension ProfileModelQueryWhereDistinct
   }
 
   QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctByEnvelopeLimitsJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'envelopeLimitsJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
       distinctByFinancialDetails({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'financialDetails',
@@ -3287,6 +4095,13 @@ extension ProfileModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctByMonthlyAllowance() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'monthlyAllowance');
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByMonthlyLimit() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'monthlyLimit');
@@ -3300,10 +4115,24 @@ extension ProfileModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByNeedsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'needsTarget');
+    });
+  }
+
   QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByPhoneNo(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'phoneNo', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctByProfilePictureUrl({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'profilePictureUrl',
+          caseSensitive: caseSensitive);
     });
   }
 
@@ -3319,6 +4148,13 @@ extension ProfileModelQueryWhereDistinct
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'quizStatus', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct>
+      distinctBySavingsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'savingsTarget');
     });
   }
 
@@ -3353,6 +4189,12 @@ extension ProfileModelQueryWhereDistinct
   QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<ProfileModel, ProfileModel, QDistinct> distinctByWantsTarget() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'wantsTarget');
     });
   }
 }
@@ -3415,6 +4257,13 @@ extension ProfileModelQueryProperty
     });
   }
 
+  QueryBuilder<ProfileModel, String?, QQueryOperations>
+      envelopeLimitsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'envelopeLimitsJson');
+    });
+  }
+
   QueryBuilder<ProfileModel, String, QQueryOperations>
       financialDetailsProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -3453,6 +4302,13 @@ extension ProfileModelQueryProperty
     });
   }
 
+  QueryBuilder<ProfileModel, double, QQueryOperations>
+      monthlyAllowanceProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'monthlyAllowance');
+    });
+  }
+
   QueryBuilder<ProfileModel, double, QQueryOperations> monthlyLimitProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'monthlyLimit');
@@ -3465,9 +4321,22 @@ extension ProfileModelQueryProperty
     });
   }
 
+  QueryBuilder<ProfileModel, double, QQueryOperations> needsTargetProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'needsTarget');
+    });
+  }
+
   QueryBuilder<ProfileModel, String?, QQueryOperations> phoneNoProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'phoneNo');
+    });
+  }
+
+  QueryBuilder<ProfileModel, String?, QQueryOperations>
+      profilePictureUrlProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'profilePictureUrl');
     });
   }
 
@@ -3480,6 +4349,12 @@ extension ProfileModelQueryProperty
   QueryBuilder<ProfileModel, String, QQueryOperations> quizStatusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'quizStatus');
+    });
+  }
+
+  QueryBuilder<ProfileModel, double, QQueryOperations> savingsTargetProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'savingsTarget');
     });
   }
 
@@ -3513,6 +4388,12 @@ extension ProfileModelQueryProperty
   QueryBuilder<ProfileModel, DateTime, QQueryOperations> updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
+    });
+  }
+
+  QueryBuilder<ProfileModel, double, QQueryOperations> wantsTargetProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'wantsTarget');
     });
   }
 }

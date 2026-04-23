@@ -10,7 +10,7 @@ def cleanup_old_users(keep_user_id):
     db = initialize_firebase()
     
     # List of collections to clean
-    collections = ["transactions", "insights", "audits"]
+    collections = ["transactions", "insights"]
     
     print(f"Starting cleanup. Keeping user: {keep_user_id}")
     
@@ -21,7 +21,7 @@ def cleanup_old_users(keep_user_id):
             # Search by field 'userId'
             docs = db.collection(coll_name).where("userId", "!=", keep_user_id).stream()
         else:
-            # Search by document ID (since insights and audits use UID as doc name)
+            # Search by document ID (since insights use UID as doc name)
             # Firestore doesn't support != on doc IDs directly in stream() easily without fetching all
             # So we fetch all and filter
             docs = db.collection(coll_name).stream()

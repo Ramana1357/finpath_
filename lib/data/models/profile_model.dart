@@ -41,6 +41,7 @@ class ProfileModel {
   final double monthlyLimit;
   final bool isCrisisMode;
   final String? profilePictureUrl;
+  final String? envelopeLimitsJson; // Stores category limits as a JSON map
 
   ProfileModel({
     required this.uid,
@@ -72,6 +73,7 @@ class ProfileModel {
     this.monthlyLimit = 30000.0,
     this.isCrisisMode = false,
     this.profilePictureUrl,
+    this.envelopeLimitsJson,
   });
 
   Map<String, dynamic> toMap() {
@@ -105,6 +107,7 @@ class ProfileModel {
       'monthlyLimit': monthlyLimit,
       'isCrisisMode': isCrisisMode,
       'profilePictureUrl': profilePictureUrl,
+      'envelopeLimitsJson': envelopeLimitsJson,
     };
   }
 
@@ -139,6 +142,7 @@ class ProfileModel {
       monthlyLimit: (map['monthlyLimit'] as num?)?.toDouble() ?? 30000.0,
       isCrisisMode: map['isCrisisMode'] as bool? ?? false,
       profilePictureUrl: map['profilePictureUrl'] as String?,
+      envelopeLimitsJson: map['envelopeLimitsJson'] as String?,
     );
   }
 
@@ -173,6 +177,7 @@ class ProfileModel {
     double? monthlyLimit,
     bool? isCrisisMode,
     String? profilePictureUrl,
+    String? envelopeLimitsJson,
   }) {
     return ProfileModel(
       uid: uid ?? this.uid,
@@ -204,6 +209,7 @@ class ProfileModel {
       monthlyLimit: monthlyLimit ?? this.monthlyLimit,
       isCrisisMode: isCrisisMode ?? this.isCrisisMode,
       profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
+      envelopeLimitsJson: envelopeLimitsJson ?? this.envelopeLimitsJson,
     )..id = id ?? this.id;
   }
 }

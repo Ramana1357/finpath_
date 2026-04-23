@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:provider/provider.dart';
@@ -12,7 +13,7 @@ import 'all_transactions_screen.dart';
 import 'notifications_screen.dart';
 import '../data/models/vault_model.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final Stream<List<ExpenseTransaction>> transactionsStream;
   final String statusMessage;
   final VoidCallback onGenerateId;
@@ -27,6 +28,26 @@ class DashboardScreen extends StatelessWidget {
     this.totalPoints = 1580,
     this.onSwitchTab,
   });
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   // Color Palette
   static const Color primaryTeal = Color(0xFF006D77);
@@ -71,13 +92,33 @@ class DashboardScreen extends StatelessWidget {
     return total;
   }
 
+  Map<int, double> _calculateWeeklySpending(List<ExpenseTransaction> transactions) {
+    Map<int, double> dailySpending = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    for (var tx in transactions) {
+      if (!tx.isExpense) continue;
+      final txDate = DateTime(tx.date.year, tx.date.month, tx.date.day);
+      final difference = today.difference(txDate).inDays;
+      
+      if (difference >= 0 && difference < 7) {
+        // 0 is today, 6 is 6 days ago. We want to map it to 0-6 index for display
+        // Let's make index 6 = today, index 0 = 6 days ago for a chronological bar chart
+        int index = 6 - difference;
+        dailySpending[index] = (dailySpending[index] ?? 0) + tx.amount;
+      }
+    }
+    return dailySpending;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundGray,
       body: SafeArea(
         child: StreamBuilder<List<ExpenseTransaction>>(
-          stream: transactionsStream,
+          stream: widget.transactionsStream,
           builder: (context, snapshot) {
             final transactions = snapshot.data ?? [];
             final authProvider = context.watch<AuthProvider>();
@@ -106,7 +147,7 @@ class DashboardScreen extends StatelessWidget {
                           const SizedBox(height: 15),
                           _buildTotalBalanceCard(context, transactions),
                           const SizedBox(height: 15),
-                          _buildMonthlyOverviewCard(transactions, monthlyLimit),
+                          _buildSwipableCharts(transactions, monthlyLimit),
                           const SizedBox(height: 20),
                           _buildTodaySpendingCard(transactions, dailyLimit),
                           const SizedBox(height: 20),
@@ -136,6 +177,7 @@ class DashboardScreen extends StatelessWidget {
 
     final dailyController = TextEditingController(text: profile.dailyLimit.toStringAsFixed(0));
     final monthlyController = TextEditingController(text: profile.monthlyLimit.toStringAsFixed(0));
+    final _targetFormKey = GlobalKey<FormState>();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -144,74 +186,100 @@ class DashboardScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(25),
         border: Border.all(color: primaryTeal.withOpacity(0.3), width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.auto_graph, color: primaryTeal, size: 20),
-              SizedBox(width: 10),
-              Text(
-                'Set Your Spending Targets',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: primaryTeal,
+      child: Form(
+        key: _targetFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.auto_graph, color: primaryTeal, size: 20),
+                SizedBox(width: 10),
+                Text(
+                  'Set Your Spending Targets',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: primaryTeal,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Daily Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 5),
-                    TextField(
-                      controller: dailyController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        prefixText: '₹ ',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        isDense: true,
+              ],
+            ),
+            const SizedBox(height: 15),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Daily Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 5),
+                      TextFormField(
+                        controller: dailyController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return "Req";
+                          final n = double.tryParse(val);
+                          if (n == null || n <= 0) return "Min Amount";
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          prefixText: '₹ ',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          isDense: true,
+                          errorStyle: const TextStyle(height: 0),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Monthly Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 5),
-                    TextField(
-                      controller: monthlyController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        prefixText: '₹ ',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        isDense: true,
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Monthly Limit', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 5),
+                      TextFormField(
+                        controller: monthlyController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(7),
+                        ],
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return "Req";
+                          final n = double.tryParse(val);
+                          if (n == null || n <= 0) return "Min Amount";
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          prefixText: '₹ ',
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          isDense: true,
+                          errorStyle: const TextStyle(height: 0),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () async {
-                final dLimit = double.tryParse(dailyController.text) ?? profile.dailyLimit;
-                final mLimit = double.tryParse(monthlyController.text) ?? profile.monthlyLimit;
+              ],
+            ),
+            const SizedBox(height: 15),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  if (!_targetFormKey.currentState!.validate()) return;
+
+                  final dLimit = double.tryParse(dailyController.text) ?? profile.dailyLimit;
+                  final mLimit = double.tryParse(monthlyController.text) ?? profile.monthlyLimit;
                 
                 final updatedProfile = profile.copyWith(
                   dailyLimit: dLimit,
@@ -219,19 +287,20 @@ class DashboardScreen extends StatelessWidget {
                   hasSeenInitialSync: true,
                 );
                 
-                // This will save to BOTH Isar and Firestore via the repository
-                await authProvider.saveProfile(updatedProfile);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primaryTeal,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+                  // This will save to BOTH Isar and Firestore via the repository
+                  await authProvider.saveProfile(updatedProfile);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryTeal,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: const Text('Save Targets'),
               ),
-              child: const Text('Save Targets'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -312,8 +381,8 @@ class DashboardScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => ProfileScreen(
-                        totalPoints: totalPoints,
-                        onSwitchTab: onSwitchTab,
+                        totalPoints: widget.totalPoints,
+                        onSwitchTab: widget.onSwitchTab,
                       ),
                     ),
                   );
@@ -341,7 +410,7 @@ class DashboardScreen extends StatelessWidget {
         children: [
           _buildStatsCard('Broke Date', 'N/A', Icons.calendar_today, Colors.red[100]!),
           _buildStatsCard('Savings', '₹0', Icons.trending_up, Colors.green[100]!),
-          _buildStatsCard('Pts', totalPoints.toString(), Icons.emoji_events_outlined, Colors.orange[100]!),
+          _buildStatsCard('Pts', widget.totalPoints.toString(), Icons.emoji_events_outlined, Colors.orange[100]!),
         ],
       );
     }
@@ -369,8 +438,8 @@ class DashboardScreen extends StatelessWidget {
             _buildStatsCard('Broke Date', brokeDate, Icons.calendar_today, Colors.red[100]!, textColor: brokeTextColor),
             GestureDetector(
               onTap: () {
-                if (onSwitchTab != null) {
-                  onSwitchTab!(1); // Switch to Vault tab
+                if (widget.onSwitchTab != null) {
+                  widget.onSwitchTab!(1); // Switch to Vault tab
                 }
               },
               child: _buildStatsCard('Savings', '₹${totalSavings.toStringAsFixed(0)}', Icons.trending_up, Colors.green[100]!),
@@ -381,13 +450,13 @@ class DashboardScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) => ProfileScreen(
-                      totalPoints: totalPoints,
-                      onSwitchTab: onSwitchTab,
+                      totalPoints: widget.totalPoints,
+                      onSwitchTab: widget.onSwitchTab,
                     ),
                   ),
                 );
               },
-              child: _buildStatsCard('Pts', totalPoints.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},'), Icons.emoji_events_outlined, Colors.orange[100]!),
+              child: _buildStatsCard('Pts', widget.totalPoints.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},'), Icons.emoji_events_outlined, Colors.orange[100]!),
             ),
           ],
         );
@@ -400,7 +469,7 @@ class DashboardScreen extends StatelessWidget {
   String _calculateBrokeDate(List<ExpenseTransaction> transactions, double allowance, bool isCrisis, double locked, double dailyLimit) {
     if (transactions.isEmpty) return "Safe";
 
-    // Fuel Tank
+    // Fuel Tank: Amount available to spend
     double fuel = allowance;
     if (isCrisis) fuel += locked;
 
@@ -408,13 +477,16 @@ class DashboardScreen extends StatelessWidget {
 
     final now = DateTime.now();
 
-    // 1. Rolling Burn (Last 7 days)
+    // 1. Rolling Weighted Burn (Last 14 days)
+    // We use a 14-day window for a more stable average than 7 days, 
+    // but weight recent days more heavily to capture recent changes.
+    const int burnWindow = 14;
     Map<int, double> dailyNetOutflow = {};
-    for (int i = 0; i < 7; i++) dailyNetOutflow[i] = 0.0;
+    for (int i = 0; i < burnWindow; i++) dailyNetOutflow[i] = 0.0;
 
     for (var tx in transactions) {
       final diff = now.difference(tx.date).inDays;
-      if (diff >= 0 && diff < 7) {
+      if (diff >= 0 && diff < burnWindow) {
         if (tx.isExpense) {
           dailyNetOutflow[diff] = (dailyNetOutflow[diff] ?? 0) + tx.amount;
         } else {
@@ -423,35 +495,52 @@ class DashboardScreen extends StatelessWidget {
       }
     }
 
-    double burnRate = dailyNetOutflow.values.reduce((a, b) => a + b) / 7;
+    // Outlier mitigation: Cap extremely high spending days to 4x the median to avoid skewing
+    List<double> nonZeroSpends = dailyNetOutflow.values.where((v) => v > 0).toList()..sort();
+    if (nonZeroSpends.length >= 3) {
+      double median = nonZeroSpends[nonZeroSpends.length ~/ 2];
+      dailyNetOutflow.updateAll((k, v) => v > median * 4 ? median * 2 : v);
+    }
+
+    double weightedBurnSum = 0;
+    double weightSum = 0;
+    for (int i = 0; i < burnWindow; i++) {
+      double weight = (burnWindow - i) / burnWindow; // Today (0) has highest weight
+      weightedBurnSum += (dailyNetOutflow[i] ?? 0) * weight;
+      weightSum += weight;
+    }
+    
+    double burnRate = weightedBurnSum / weightSum;
 
     // FALLBACK: If burn rate is exceptionally low or 0, use a percentage of the daily limit
     if (burnRate < (dailyLimit * 0.1)) {
-      burnRate = dailyLimit * 0.3; // Assume 30% of limit as baseline burn
+      burnRate = dailyLimit * 0.4; // Slightly more conservative fallback
     }
 
     double daysBurn = fuel / burnRate;
 
-    // 2. Linear Regression (Last 10 Days Balance Trend)
+    // 2. Linear Regression (Last 15 Days Balance Trend)
+    // Regression helps identify if spending is accelerating or decelerating
+    const int regWindow = 15;
     List<double> balances = [];
-    List<double> indices = [];
     double runningFuel = fuel;
 
-    for (int i = 0; i < 10; i++) {
-      indices.add(i.toDouble());
-      balances.add(runningFuel);
-
-      double dayNet = 0;
-      for (var tx in transactions) {
-        if (now.difference(tx.date).inDays == i) {
-          dayNet += tx.isExpense ? -tx.amount : tx.amount;
-        }
+    // Pre-calculate daily nets for efficiency
+    Map<int, double> dailyNets = {};
+    for (int i = 0; i < regWindow; i++) dailyNets[i] = 0.0;
+    for (var tx in transactions) {
+      final diff = now.difference(tx.date).inDays;
+      if (diff >= 0 && diff < regWindow) {
+        dailyNets[diff] = (dailyNets[diff] ?? 0) + (tx.isExpense ? -tx.amount : tx.amount);
       }
-      runningFuel -= dayNet; // Reverse to find previous balance
     }
 
-    // Reverse to get 0 as 10 days ago, 9 as today
-    List<double> x = List.generate(10, (i) => i.toDouble());
+    for (int i = 0; i < regWindow; i++) {
+      balances.add(runningFuel);
+      runningFuel -= (dailyNets[i] ?? 0); // Walk backwards
+    }
+
+    List<double> x = List.generate(regWindow, (i) => i.toDouble());
     List<double> y = balances.reversed.toList();
 
     double slope = _computeSlope(x, y);
@@ -460,22 +549,25 @@ class DashboardScreen extends StatelessWidget {
     double daysReg = double.infinity;
     if (slope < 0) {
       double tBroke = -intercept / slope;
-      daysReg = tBroke - 9; // Relative to today (index 9)
+      daysReg = tBroke - (regWindow - 1); // Relative to today
     }
 
-    // 3. Hybrid Calculation
+    // 3. Smart Hybrid Calculation
     double finalDays;
     if (daysBurn.isFinite && daysReg.isFinite) {
-      // If both are positive, we take the weighted average.
-      // If one is negative (growing), we prioritize the one that predicts a "broke" state.
       if (daysBurn > 0 && daysReg > 0) {
-        finalDays = 0.6 * daysBurn + 0.4 * daysReg;
+        // Favor the more conservative (shorter) prediction if they diverge significantly
+        if ((daysBurn - daysReg).abs() > 10) {
+          finalDays = (daysBurn < daysReg) ? (0.7 * daysBurn + 0.3 * daysReg) : (0.3 * daysBurn + 0.7 * daysReg);
+        } else {
+          finalDays = 0.5 * daysBurn + 0.5 * daysReg;
+        }
       } else if (daysBurn > 0) {
         finalDays = daysBurn;
       } else if (daysReg > 0) {
         finalDays = daysReg;
       } else {
-        return "Growing"; // Both trends show increasing balance
+        return "Growing";
       }
     } else if (daysBurn.isFinite && daysBurn > 0) {
       finalDays = daysBurn;
@@ -623,6 +715,41 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildSwipableCharts(List<ExpenseTransaction> transactions, double monthlyLimit) {
+    return Column(
+      children: [
+        SizedBox(
+          height: 320,
+          child: PageView(
+            controller: _pageController,
+            onPageChanged: (int page) {
+              setState(() {
+                _currentPage = page;
+              });
+            },
+            children: [
+              _buildMonthlyOverviewCard(transactions, monthlyLimit),
+              _buildWeeklyBarChartCard(transactions),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(2, (index) => Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _currentPage == index ? primaryTeal : Colors.grey[300],
+            ),
+          )),
+        ),
+      ],
+    );
+  }
+
   Widget _buildMonthlyOverviewCard(List<ExpenseTransaction> transactions, double monthlyLimit) {
     final double totalSpent = _calculateTotalSpentThisMonth(transactions);
 
@@ -672,6 +799,94 @@ class DashboardScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _buildLegend(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeeklyBarChartCard(List<ExpenseTransaction> transactions) {
+    final dailySpending = _calculateWeeklySpending(transactions);
+    final now = DateTime.now();
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Weekly Activity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryTeal)),
+              Text('Last 7 Days', style: TextStyle(color: Colors.blueGrey[300])), 
+            ],
+          ),
+          const SizedBox(height: 25),
+          Expanded(
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: dailySpending.values.reduce((a, b) => a > b ? a : b) * 1.2,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => primaryTeal,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        '₹${rod.toY.toStringAsFixed(0)}',
+                        const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final date = now.subtract(Duration(days: 6 - value.toInt()));
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            DateFormat('E').format(date)[0],
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                barGroups: dailySpending.entries.map((entry) {
+                  return BarChartGroupData(
+                    x: entry.key,
+                    barRods: [
+                      BarChartRodData(
+                        toY: entry.value,
+                        color: entry.key == 6 ? primaryTeal : accentTeal,
+                        width: 16,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Center(
+            child: Text(
+              "Swipe left to see monthly pie chart",
+              style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
+          ),
         ],
       ),
     );
@@ -738,16 +953,17 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildRecentExpensesSection(BuildContext context, List<ExpenseTransaction> transactions) {
-    return Column(
-      children: [
-        Theme(
-          data: ThemeData().copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            backgroundColor: Colors.white,
-            collapsedBackgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-            collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-            title: Row(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(25),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Recent Logged Expenses', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
@@ -762,55 +978,51 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ],
             ),
-            initiallyExpanded: true, 
-            children: [
-              // SAFE ACCESS: Show empty state instead of crashing
-              if (transactions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-                  child: Column(
-                    children: [
-                      Icon(Icons.receipt_long_outlined, size: 40, color: Colors.grey),
-                      SizedBox(height: 10),
-                      Text("No transactions logged yet.", style: TextStyle(color: Colors.grey, fontSize: 13)),
-                    ],
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: transactions.length > 5 ? 5 : transactions.length,
-                  itemBuilder: (context, index) {
-                    final tx = transactions[index];
-
-                    final bool isExpense = tx.isExpense;
-                    final String sign = isExpense ? '-' : '+';
-                    final Color amountColor = isExpense ? Colors.redAccent : Colors.green;
-                    final Color avatarBgColor = isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1);
-                    final IconData txIcon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
-
-                    return ListTile(
-                      leading: CircleAvatar(
-                          backgroundColor: avatarBgColor,
-                          child: Icon(txIcon, color: amountColor, size: 20)
-                      ),
-                      title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                          isExpense ? 'Debit' : 'Credit',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12)
-                      ),
-                      trailing: Text(
-                          '$sign ₹${tx.amount.toStringAsFixed(2)}',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: amountColor, fontSize: 15)
-                      ),
-                    );
-                  },
-                ),
-            ],
           ),
-        ),
-      ],
+          if (transactions.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+              child: Column(
+                children: [
+                  Icon(Icons.receipt_long_outlined, size: 40, color: Colors.grey),
+                  SizedBox(height: 10),
+                  Text("No transactions logged yet.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: transactions.length > 5 ? 5 : transactions.length,
+              itemBuilder: (context, index) {
+                final tx = transactions[index];
+
+                final bool isExpense = tx.isExpense;
+                final String sign = isExpense ? '-' : '+';
+                final Color amountColor = isExpense ? Colors.redAccent : Colors.green;
+                final Color avatarBgColor = isExpense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1);
+                final IconData txIcon = isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded;
+
+                return ListTile(
+                  leading: CircleAvatar(
+                      backgroundColor: avatarBgColor,
+                      child: Icon(txIcon, color: amountColor, size: 20)
+                  ),
+                  title: Text(tx.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                      isExpense ? 'Debit' : 'Credit',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 12)
+                  ),
+                  trailing: Text(
+                      '$sign ₹${tx.amount.toStringAsFixed(2)}',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: amountColor, fontSize: 15)
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }

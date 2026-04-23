@@ -7,6 +7,7 @@ import 'feed_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:telephony/telephony.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart'; // REQUIRED FOR DateFormat
 import '../presentation/providers/auth_provider.dart';
 import '../data/models/profile_model.dart';
@@ -15,6 +16,9 @@ import '../services/cloud_service.dart';
 import '../services/local_cache_service.dart';
 import '../utils/sms_parser.dart';
 import '../main.dart'; // For backgroundMessageHandler
+
+import '../presentation/screens/profile_setup_screen.dart'; // Just in case, but usually not needed here
+import 'all_transactions_screen.dart';
 
 class MainHub extends StatefulWidget {
   const MainHub({super.key});
@@ -156,6 +160,173 @@ class _MainHubState extends State<MainHub> {
     }
   }
 
+  void _showManualTransactionDialog(BuildContext context) {
+    final titleController = TextEditingController();
+    final amountController = TextEditingController();
+    String selectedCategory = 'Food';
+    bool isExpense = true;
+    DateTime selectedDate = DateTime.now();
+    const primaryTeal = Color(0xFF006D77);
+
+    final categories = ['Food', 'Shopping', 'Transport', 'Entertainment', 'Health', 'Education', 'Bills', 'Income', 'Other'];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        String? dialogError;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text("Manual Transaction", style: TextStyle(color: primaryTeal, fontWeight: FontWeight.bold)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (dialogError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(dialogError!, style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    TextField(
+                      controller: titleController,
+                      maxLength: 20,
+                      decoration: const InputDecoration(
+                        labelText: "Title (e.g. Starbucks)",
+                        prefixIcon: Icon(Icons.edit, color: primaryTeal),
+                      ),
+                    ),
+                    TextField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: "Amount",
+                        prefixIcon: Icon(Icons.currency_rupee, color: primaryTeal),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 15),
+                    DropdownButtonFormField<String>(
+                      value: selectedCategory,
+                      items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                      onChanged: (val) => setDialogState(() => selectedCategory = val!),
+                      decoration: const InputDecoration(
+                        labelText: "Category",
+                        prefixIcon: Icon(Icons.category_outlined, color: primaryTeal),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    SwitchListTile(
+                      title: const Text("Is Expense?"),
+                      value: isExpense,
+                      onChanged: (val) => setDialogState(() => isExpense = val),
+                      activeColor: Colors.redAccent,
+                      inactiveThumbColor: Colors.green,
+                      inactiveTrackColor: Colors.green.withOpacity(0.5),
+                    ),
+                    ListTile(
+                      title: Text("Date: ${DateFormat('dd/MM/yyyy').format(selectedDate)}"),
+                      leading: const Icon(Icons.calendar_today, color: primaryTeal),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel", style: TextStyle(color: Colors.grey))),
+                ElevatedButton(
+                  onPressed: () async {
+                    final title = titleController.text;
+                    final amount = double.tryParse(amountController.text) ?? 0.0;
+                    
+                    if (title.isEmpty || amount <= 0) {
+                      setDialogState(() => dialogError = "Please enter valid title and amount");
+                      return;
+                    }
+
+                    final cacheService = context.read<LocalCacheService>();
+                    final authProvider = context.read<AuthProvider>();
+
+                    // --- Balance Check for Expenses ---
+                    if (isExpense) {
+                      final totalNet = await cacheService.getTotalNetBalance();
+                      
+                      final profile = authProvider.profile;
+                      final locked = profile?.totalLockedSavings ?? 0;
+                      final vault = profile?.totalVaultSavings ?? 0;
+                      final isCrisisMode = profile?.isCrisisMode ?? false;
+                      final currentAllowance = totalNet - locked - vault;
+
+                      if (amount > currentAllowance && !isCrisisMode) {
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Row(
+                                children: [
+                                  Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+                                  SizedBox(width: 10),
+                                  Text("Balance Error"),
+                                ],
+                              ),
+                              content: Text(
+                                "This expense (₹$amount) exceeds your current allowance (₹${currentAllowance.toStringAsFixed(2)}).\n\n"
+                                "To spend from your savings, please update your settings in the Profile."
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("OK"),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return; // Prevent adding the transaction
+                      }
+                    }
+
+                    final tx = ExpenseTransaction(
+                      title: title,
+                      amount: amount,
+                      category: selectedCategory,
+                      isExpense: isExpense,
+                      date: selectedDate,
+                    );
+                    
+                    await authProvider.saveTransaction(tx);
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Transaction added!"), backgroundColor: primaryTeal),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryTeal,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text("Save", style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+  }
+
   Future<void> _handleParsedTransaction(ParsedSms parsed, String rawText) async {
     final authProvider = context.read<AuthProvider>();
 
@@ -163,7 +334,7 @@ class _MainHubState extends State<MainHub> {
     final tx = ExpenseTransaction(
       title: parsed.title,
       amount: parsed.amount,
-      category: parsed.isExpense ? "Other" : "Income",
+      category: parsed.category,
       isExpense: parsed.isExpense,
       date: DateTime.now(),
       smsRawText: rawText,
@@ -195,22 +366,78 @@ class _MainHubState extends State<MainHub> {
     ];
 
     return Scaffold(
+      extendBody: true, // This allows the Scaffold's body to extend behind the BottomNavigationBar
       body: IndexedStack(
         index: _selectedIndex,
         children: _screens,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF006D77),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.lock), label: 'Vault'),
-          BottomNavigationBarItem(icon: Icon(Icons.rss_feed), label: 'Feed'),
-          BottomNavigationBarItem(icon: Icon(Icons.analytics), label: 'Insights'),
-        ],
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(top: 20), // Adjust this value to control how much it "floats"
+        child: FloatingActionButton(
+          onPressed: () => _showManualTransactionDialog(context),
+          backgroundColor: const Color(0xFF006D77),
+          elevation: 4,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add, color: Colors.white, size: 30),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        elevation: 10,
+        shadowColor: Colors.black.withOpacity(0.4),
+        padding: EdgeInsets.zero,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Home'),
+              _buildNavItem(1, Icons.lock_outline, Icons.lock, 'Vault'),
+              const SizedBox(width: 48), // Space for the floating button
+              _buildNavItem(2, Icons.rss_feed_outlined, Icons.rss_feed, 'Feed'),
+              _buildNavItem(3, Icons.analytics_outlined, Icons.analytics, 'Insights'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, IconData selectedIcon, String label) {
+    final isSelected = _selectedIndex == index;
+    const primaryTeal = Color(0xFF006D77);
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => setState(() => _selectedIndex = index),
+          splashColor: primaryTeal.withOpacity(0.15),
+          highlightColor: primaryTeal.withOpacity(0.05),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isSelected ? selectedIcon : icon,
+                color: isSelected ? primaryTeal : Colors.grey,
+                size: 24,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? primaryTeal : Colors.grey,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

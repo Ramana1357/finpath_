@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../presentation/providers/auth_provider.dart';
@@ -26,8 +27,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _isSmsListenerActive = true;
-
   // --- UI COLORS ---
   static const Color _primaryTeal = Color(0xFF006D77);
   static const Color _backgroundGray = Color(0xFFEDF6F9);
@@ -84,420 +83,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildGeneralSettingsList(String name, String bio, ProfileModel? profile) {
-    final authProvider = context.read<AuthProvider>();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 10, bottom: 10),
-            child: Text("Account Settings", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          _buildSettingsItem(
-            Icons.person_outline,
-            "Personal Information",
-            onTap: () => _showPersonalInformationBottomSheet(context),
-          ),
-          _buildSettingsItem(
-            Icons.speed_outlined,
-            "Expense Limits",
-            onTap: () => _showExpenseLimitsBottomSheet(context),
-          ),
-          _buildSettingsItem(
-            Icons.tune_outlined, 
-            "Budget Rules (50/30/20)",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const BudgetRulesScreen()),
-              );
-            },
-          ),
-          _buildSettingsItem(
-            Icons.shield_outlined,
-            "My Dream Vaults",
-            onTap: () {
-              if (widget.onSwitchTab != null) {
-                widget.onSwitchTab!(1); // Switch to Vault tab
-                Navigator.pop(context); // Close Profile
-              }
-            },
-          ),
-          _buildSettingsItem(
-            Icons.file_download_outlined, 
-            "Export Data",
-            onTap: () => _exportTransactionData(context),
-          ),
-          const SizedBox(height: 20),
-          const Padding(
-            padding: EdgeInsets.only(left: 10, bottom: 10),
-            child: Text("Preferences & Security", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
-          ),
-          _buildSmsToggle(context, profile),
-          _buildCrisisModeCard(profile?.isCrisisMode ?? false, authProvider),
-          _buildBiometricToggle(context, profile),
-          _buildSettingsItem(
-            Icons.lock_outline, 
-            "Change Password",
-            onTap: () => _showChangePasswordDialog(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCrisisModeCard(bool isActive, AuthProvider authProvider) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: isActive ? Colors.red.withOpacity(0.3) : Colors.transparent),
-      ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: _backgroundGray,
-          child: Icon(
-            Icons.shield_outlined,
-            color: isActive ? Colors.red : Colors.grey,
-          ),
-        ),
-        title: const Text(
-          "Crisis Mode Setup",
-          style: TextStyle(fontWeight: FontWeight.bold, color: _primaryTeal, fontSize: 15),
-        ),
-        subtitle: Text(
-          isActive ? "Crisis Mode ACTIVE" : "Currently Safe (Inactive)",
-          style: TextStyle(
-            color: isActive ? Colors.red : Colors.grey[600],
-            fontSize: 12,
-          ),
-        ),
-        trailing: Switch(
-          value: isActive,
-          onChanged: (val) async {
-            final latestProfile = await context.read<LocalCacheService>().getProfile(authProvider.user!.uid);
-            if (latestProfile != null) {
-              final updatedProfile = latestProfile.copyWith(
-                isCrisisMode: val,
-                updatedAt: DateTime.now(),
-              );
-              await authProvider.saveProfile(updatedProfile);
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(val ? "CRISIS MODE ENABLED: Emergency funds unlocked." : "Crisis mode disabled."),
-                    backgroundColor: val ? Colors.orange : Colors.green,
-                  ),
-                );
-              }
-            }
-          },
-          activeColor: Colors.red,
-        ),
-      ),
-    );
-  }
+  // --- EXPORT LOGIC ---
 
 
-  Widget _buildHeader(String name, String bio, ProfileModel? profile) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 50,
-          backgroundColor: _primaryTeal,
-          backgroundImage: (profile?.profilePictureUrl != null && profile!.profilePictureUrl!.isNotEmpty)
-              ? NetworkImage(profile.profilePictureUrl!)
-              : null,
-          child: (profile?.profilePictureUrl == null || profile!.profilePictureUrl!.isEmpty)
-              ? const Icon(Icons.person, size: 50, color: Colors.white)
-              : null,
-        ),
-        const SizedBox(height: 15),
-        Text(
-          name,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          bio,
-          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildGamificationCard(int streak, ProfileModel? profile) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.local_fire_department, color: Colors.orange),
-                const SizedBox(width: 8),
-                Text(
-                  "$streak Day Streak",
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            height: 30,
-            width: 1,
-            color: Colors.grey[300],
-          ),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.emoji_events_outlined, color: Colors.black87),
-                const SizedBox(width: 8),
-                Text(
-                  "${profile?.lifetimePoints ?? 0} Pts",
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  Widget _buildTestTools(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 10, bottom: 10),
-          child: Text("Developer Tools (Testing)", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
-        ),
-        _buildSettingsItem(
-          Icons.bug_report_outlined, 
-          "Generate Test Transactions",
-          onTap: () => _generateTestData(context),
-        ),
-        _buildSettingsItem(
-          Icons.add_circle_outline, 
-          "Add Manual Transaction",
-          onTap: () => _showManualTransactionDialog(context),
-        ),
-        _buildSettingsItem(
-          Icons.delete_sweep_outlined, 
-          "Clear Transaction History",
-          onTap: () => _clearTransactionHistory(context),
-        ),
-        _buildSettingsItem(
-          Icons.auto_delete_outlined, 
-          "Nuke Isar DB (Full Reset)",
-          onTap: () => _nukeIsarDatabase(context),
-        ),
-        _buildSettingsItem(
-          Icons.refresh_outlined, 
-          "Fresh Restart (Clean Profile)",
-          onTap: () => _freshRestart(context),
-        ),
-        if (kDebugMode) ...[
-          const SizedBox(height: 10),
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Text(
-                "DEBUG: FRESH RESET ENABLED",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _generateTestData(BuildContext context) async {
-    final cacheService = context.read<LocalCacheService>();
-    final authProvider = context.read<AuthProvider>();
-
-    final List<Map<String, dynamic>> testData = [
-      {'title': 'Starbucks Coffee', 'amount': 450.0, 'category': 'Food', 'isExpense': true, 'daysAgo': 0},
-      {'title': 'Amazon Shopping', 'amount': 1200.0, 'category': 'Shopping', 'isExpense': true, 'daysAgo': 1},
-      {'title': 'Monthly Salary', 'amount': 45000.0, 'category': 'Income', 'isExpense': false, 'daysAgo': 2},
-      {'title': 'Zomato Dinner', 'amount': 850.0, 'category': 'Food', 'isExpense': true, 'daysAgo': 3},
-      {'title': 'Uber Ride', 'amount': 200.0, 'category': 'Transport', 'isExpense': true, 'daysAgo': 5},
-      {'title': 'Netflix Sub', 'amount': 499.0, 'category': 'Entertainment', 'isExpense': true, 'daysAgo': 10},
-    ];
-
-    List<ExpenseTransaction> createdTxs = [];
-    for (var data in testData) {
-      final tx = ExpenseTransaction(
-        title: data['title'],
-        amount: data['amount'],
-        category: data['category'],
-        isExpense: data['isExpense'],
-        date: DateTime.now().subtract(Duration(days: data['daysAgo'])),
-      );
-      await cacheService.saveTransaction(tx);
-      
-      // Allocate to Locked Savings if Income (+x)
-      if (!tx.isExpense && authProvider.profile != null) {
-        final profile = authProvider.profile!;
-        final double allocationAmount = (tx.amount * profile.emergencyPercent) / 100;
-        final updatedProfile = profile.copyWith(
-          totalLockedSavings: profile.totalLockedSavings + allocationAmount,
-          updatedAt: DateTime.now(),
-        );
-        await authProvider.saveProfile(updatedProfile);
-      }
-
-      createdTxs.add(tx);
-    }
-
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Generated 6 test transactions! Graphs updating..."), backgroundColor: Colors.green),
-      );
-    }
-  }
-
-  void _showManualTransactionDialog(BuildContext context) {
-    final titleController = TextEditingController();
-    final amountController = TextEditingController();
-    String selectedCategory = 'Food';
-    bool isExpense = true;
-    DateTime selectedDate = DateTime.now();
-
-    final categories = ['Food', 'Shopping', 'Transport', 'Entertainment', 'Health', 'Education', 'Bills', 'Income', 'Other'];
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text("Manual Transaction"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(labelText: "Title (e.g. Starbucks)"),
-                ),
-                TextField(
-                  controller: amountController,
-                  decoration: const InputDecoration(labelText: "Amount"),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  onChanged: (val) => setDialogState(() => selectedCategory = val!),
-                  decoration: const InputDecoration(labelText: "Category"),
-                ),
-                const SizedBox(height: 15),
-                SwitchListTile(
-                  title: const Text("Is Expense?"),
-                  value: isExpense,
-                  onChanged: (val) => setDialogState(() => isExpense = val),
-                  activeColor: Colors.redAccent,
-                  inactiveThumbColor: Colors.green,
-                  inactiveTrackColor: Colors.green.withOpacity(0.5),
-                ),
-                ListTile(
-                  title: Text("Date: ${selectedDate.toLocal().toString().split(' ')[0]}"),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) {
-                      setDialogState(() => selectedDate = picked);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-            ElevatedButton(
-              onPressed: () async {
-                final title = titleController.text;
-                final amount = double.tryParse(amountController.text) ?? 0.0;
-                
-                if (title.isEmpty || amount <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please enter valid title and amount"), backgroundColor: Colors.redAccent),
-                  );
-                  return;
-                }
-
-                final cacheService = context.read<LocalCacheService>();
-                final authProvider = context.read<AuthProvider>();
-                final tx = ExpenseTransaction(
-                  title: title,
-                  amount: amount,
-                  category: selectedCategory,
-                  isExpense: isExpense,
-                  date: selectedDate,
-                );
-                
-                await cacheService.saveTransaction(tx);
-                
-                // Allocate to Locked Savings and Vaults if Income (+x)
-                if (!isExpense && authProvider.profile != null) {
-                  final profile = authProvider.profile!;
-                  // Use the atomic allocation logic from LocalCacheService
-                  await cacheService.performIncomeAllocation(profile.uid, amount);
-                }
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Transaction added!"), backgroundColor: Colors.green),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
-              child: const Text("Save", style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  Future<void> _exportTransactionData(BuildContext context) async {
+  void _exportFinancialReport(BuildContext context) async {
     final cacheService = context.read<LocalCacheService>();
     final authProvider = context.read<AuthProvider>();
     final profile = authProvider.profile;
@@ -593,14 +183,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final bytes = await pdf.save();
       
-      // For Android/iOS, getApplicationDocumentsDirectory is a safe local storage.
-      // On Android, this usually maps to /data/user/0/com.package.name/app_flutter
-      // To save to the "Downloads" or "Documents" folder accessible by user, 
-      // we would need additional permissions or use the printing package's built-in save.
-      
-      // However, we will use the Printing package to show a 'Save as PDF' dialog 
-      // which is the most reliable way for users to pick a local destination.
-      
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => bytes,
         name: "Finpath_Report_${DateTime.now().millisecondsSinceEpoch}",
@@ -617,6 +199,458 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SnackBar(content: Text("Export failed: $e"), backgroundColor: Colors.redAccent),
         );
       }
+    }
+  }
+
+  // --- UI BUILDERS ---
+
+  Widget _buildHeader(String name, String bio, ProfileModel? profile) {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 50,
+          backgroundColor: _primaryTeal,
+          backgroundImage: (profile?.profilePictureUrl != null && profile!.profilePictureUrl!.isNotEmpty)
+              ? NetworkImage(profile.profilePictureUrl!)
+              : null,
+          child: (profile?.profilePictureUrl == null || profile!.profilePictureUrl!.isEmpty)
+              ? const Icon(Icons.person, size: 50, color: Colors.white)
+              : null,
+        ),
+        const SizedBox(height: 15),
+        Text(
+          name,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          bio,
+          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGamificationCard(int streak, ProfileModel? profile) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.local_fire_department, color: Colors.orange),
+                const SizedBox(width: 8),
+                Text(
+                  "$streak Day Streak",
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            height: 30,
+            width: 1,
+            color: Colors.grey[300],
+          ),
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.emoji_events_outlined, color: Colors.black87),
+                const SizedBox(width: 8),
+                Text(
+                  "${profile?.lifetimePoints ?? 0} Pts",
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeneralSettingsList(String name, String bio, ProfileModel? profile) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 10, bottom: 10),
+            child: Text("Account Settings", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          _buildSettingsItem(
+            Icons.person_outline,
+            "Personal Information",
+            onTap: () => _showPersonalInformationBottomSheet(context),
+          ),
+          _buildSettingsItem(
+            Icons.speed_outlined,
+            "Expense Limits",
+            onTap: () => _showExpenseLimitsBottomSheet(context),
+          ),
+          _buildSettingsItem(
+            Icons.tune_outlined, 
+            "Budget Rules (50/30/20)",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BudgetRulesScreen()),
+              );
+            },
+          ),
+          _buildSettingsItem(
+            Icons.shield_outlined,
+            "My Dream Vaults",
+            onTap: () {
+              if (widget.onSwitchTab != null) {
+                widget.onSwitchTab!(1); // Switch to Vault tab
+              }
+            },
+          ),
+          _buildSettingsItem(
+            Icons.file_download_outlined, 
+            "Export Financial Report (PDF)",
+            onTap: () => _exportFinancialReport(context),
+          ),
+
+          const SizedBox(height: 20),
+          const Padding(
+            padding: EdgeInsets.only(left: 10, bottom: 10),
+            child: Text("Preferences & Security", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          _buildSmsToggle(context, profile),
+          _buildCrisisModeCard(profile?.isCrisisMode ?? false),
+          _buildBiometricToggle(context, profile),
+          _buildSettingsItem(
+            Icons.lock_outline, 
+            "Change Password",
+            onTap: () => _showChangePasswordDialog(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmsToggle(BuildContext context, ProfileModel? profile) {
+    final bool isEnabled = profile?.smsTrackingEnabled ?? true;
+    final authProvider = context.read<AuthProvider>();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ListTile(
+        leading: const Icon(Icons.chat_bubble_outline, color: _primaryTeal),
+        title: const Text("SMS Auto-Tracking", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        subtitle: Text(
+          isEnabled ? "Regex engine active" : "Tracking disabled",
+          style: TextStyle(fontSize: 12, color: isEnabled ? Colors.green : Colors.grey),
+        ),
+        trailing: Switch(
+          value: isEnabled,
+          activeColor: _primaryTeal,
+          onChanged: (bool value) async {
+            if (profile != null) {
+              final updatedProfile = profile.copyWith(
+                smsTrackingEnabled: value,
+                updatedAt: DateTime.now(),
+              );
+              await authProvider.saveProfile(updatedProfile);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCrisisModeCard(bool isActive) {
+    final authProvider = context.read<AuthProvider>();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: isActive ? Colors.red.withOpacity(0.3) : Colors.transparent),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _backgroundGray,
+          child: Icon(
+            Icons.shield_outlined,
+            color: isActive ? Colors.red : Colors.grey,
+          ),
+        ),
+        title: const Text(
+          "Crisis Mode Setup",
+          style: TextStyle(fontWeight: FontWeight.bold, color: _primaryTeal, fontSize: 15),
+        ),
+        subtitle: Text(
+          isActive ? "Crisis Mode ACTIVE" : "Currently Safe (Inactive)",
+          style: TextStyle(
+            color: isActive ? Colors.red : Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+        trailing: Switch(
+          value: isActive,
+          onChanged: (val) async {
+            final latestProfile = await context.read<LocalCacheService>().getProfile(authProvider.user!.uid);
+            if (latestProfile != null) {
+              final updatedProfile = latestProfile.copyWith(
+                isCrisisMode: val,
+                updatedAt: DateTime.now(),
+              );
+              await authProvider.saveProfile(updatedProfile);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(val ? "CRISIS MODE ENABLED: Emergency funds unlocked." : "Crisis mode disabled."),
+                    backgroundColor: val ? Colors.orange : Colors.green,
+                  ),
+                );
+              }
+            }
+          },
+          activeColor: Colors.red,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBiometricToggle(BuildContext context, ProfileModel? profile) {
+    final bool isEnabled = profile?.biometricEnabled ?? false;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ListTile(
+        leading: const Icon(Icons.fingerprint, color: _primaryTeal),
+        title: const Text("Biometric Lock", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        trailing: Switch(
+          value: isEnabled,
+          activeColor: _primaryTeal,
+          onChanged: (bool value) => _handleBiometricToggle(context, value, profile),
+        ),
+      ),
+    );
+  }
+
+  void _handleBiometricToggle(BuildContext context, bool newValue, ProfileModel? profile) async {
+    if (profile == null) return;
+
+    final authProvider = context.read<AuthProvider>();
+    final passwordController = TextEditingController();
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Verify Identity"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Please enter your password to change biometric settings."),
+            const SizedBox(height: 15),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: "Password",
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
+            child: const Text("Confirm", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final bool isPasswordValid = await authProvider.verifyPassword(passwordController.text);
+      if (isPasswordValid) {
+        final updatedProfile = profile.copyWith(
+          biometricEnabled: newValue,
+          updatedAt: DateTime.now(),
+        );
+        await authProvider.saveProfile(updatedProfile);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Biometric Lock ${newValue ? 'Enabled' : 'Disabled'}")),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Invalid password"), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
+    }
+  }
+
+  Widget _buildSettingsItem(IconData icon, String title, {String? badge, VoidCallback? onTap}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: Icon(icon, color: _primaryTeal),
+        title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (badge != null)
+              Container(
+                margin: const EdgeInsets.only(right: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badge,
+                  style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- DEVELOPER TOOLS ---
+
+  Widget _buildTestTools(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    final profile = authProvider.profile;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 10, bottom: 10),
+          child: Text("Developer Tools (Testing)", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+        ),
+        _buildSettingsItem(
+          Icons.stars_outlined, 
+          "Add Lifetime Points (Debug)",
+          onTap: () => _showAddPointsDialog(context, profile, authProvider),
+        ),
+        _buildSettingsItem(
+          Icons.bug_report_outlined, 
+          "Generate Test Transactions",
+          onTap: () => _generateTestData(context),
+        ),
+        _buildSettingsItem(
+          Icons.delete_sweep_outlined, 
+          "Clear Transaction History",
+          onTap: () => _clearTransactionHistory(context),
+        ),
+        _buildSettingsItem(
+          Icons.auto_delete_outlined, 
+          "Nuke Isar DB (Full Reset)",
+          onTap: () => _nukeIsarDatabase(context),
+        ),
+        _buildSettingsItem(
+          Icons.refresh_outlined, 
+          "Fresh Restart (Clean Profile)",
+          onTap: () => _freshRestart(context),
+        ),
+        if (kDebugMode) ...[
+          const SizedBox(height: 10),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                "DEBUG: FRESH RESET ENABLED",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.1,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _generateTestData(BuildContext context) async {
+    final cacheService = context.read<LocalCacheService>();
+    final authProvider = context.read<AuthProvider>();
+
+    final List<Map<String, dynamic>> testData = [
+      {'title': 'Starbucks Coffee', 'amount': 450.0, 'category': 'Food', 'isExpense': true, 'daysAgo': 0},
+      {'title': 'Amazon Shopping', 'amount': 1200.0, 'category': 'Shopping', 'isExpense': true, 'daysAgo': 1},
+      {'title': 'Monthly Salary', 'amount': 45000.0, 'category': 'Income', 'isExpense': false, 'daysAgo': 2},
+      {'title': 'Zomato Dinner', 'amount': 850.0, 'category': 'Food', 'isExpense': true, 'daysAgo': 3},
+      {'title': 'Uber Ride', 'amount': 200.0, 'category': 'Transport', 'isExpense': true, 'daysAgo': 5},
+      {'title': 'Netflix Sub', 'amount': 499.0, 'category': 'Entertainment', 'isExpense': true, 'daysAgo': 10},
+    ];
+
+    for (var data in testData) {
+      final tx = ExpenseTransaction(
+        title: data['title'],
+        amount: data['amount'],
+        category: data['category'],
+        isExpense: data['isExpense'],
+        date: DateTime.now().subtract(Duration(days: data['daysAgo'])),
+      );
+      await cacheService.saveTransaction(tx);
+      
+      // Allocate to Locked Savings if Income (+x)
+      if (!tx.isExpense && authProvider.profile != null) {
+        final profile = authProvider.profile!;
+        final double allocationAmount = (tx.amount * profile.emergencyPercent) / 100;
+        final updatedProfile = profile.copyWith(
+          totalLockedSavings: profile.totalLockedSavings + allocationAmount,
+          updatedAt: DateTime.now(),
+        );
+        await authProvider.saveProfile(updatedProfile);
+      }
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Generated 6 test transactions! Graphs updating..."), backgroundColor: Colors.green),
+      );
     }
   }
 
@@ -711,120 +745,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildSmsToggle(BuildContext context, ProfileModel? profile) {
-    final bool isEnabled = profile?.smsTrackingEnabled ?? true;
-    final authProvider = context.read<AuthProvider>();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: ListTile(
-        leading: const Icon(Icons.chat_bubble_outline, color: _primaryTeal),
-        title: const Text("SMS Auto-Tracking", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-        subtitle: Text(
-          isEnabled ? "Regex engine active" : "Tracking disabled",
-          style: TextStyle(fontSize: 12, color: isEnabled ? Colors.green : Colors.grey),
-        ),
-        trailing: Switch(
-          value: isEnabled,
-          activeColor: _primaryTeal,
-          onChanged: (bool value) async {
-            if (profile != null) {
-              final updatedProfile = profile.copyWith(
-                smsTrackingEnabled: value,
-                updatedAt: DateTime.now(),
-              );
-              await authProvider.saveProfile(updatedProfile);
-            }
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBiometricToggle(BuildContext context, ProfileModel? profile) {
-    final bool isEnabled = profile?.biometricEnabled ?? false;
-    final authProvider = context.read<AuthProvider>();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: ListTile(
-        leading: const Icon(Icons.fingerprint, color: _primaryTeal),
-        title: const Text("Biometric Lock", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-        trailing: Switch(
-          value: isEnabled,
-          activeColor: _primaryTeal,
-          onChanged: (bool value) => _handleBiometricToggle(context, value, profile),
-        ),
-      ),
-    );
-  }
-
-  void _handleBiometricToggle(BuildContext context, bool newValue, ProfileModel? profile) async {
-    if (profile == null) return;
-
-    final authProvider = context.read<AuthProvider>();
-    final passwordController = TextEditingController();
-
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Verify Identity"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Please enter your password to change biometric settings."),
-            const SizedBox(height: 15),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: "Password",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: _primaryTeal),
-            child: const Text("Confirm", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      final bool isPasswordValid = await authProvider.verifyPassword(passwordController.text);
-      if (isPasswordValid) {
-        final updatedProfile = profile.copyWith(
-          biometricEnabled: newValue,
-          updatedAt: DateTime.now(),
-        );
-        await authProvider.saveProfile(updatedProfile);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Biometric Lock ${newValue ? 'Enabled' : 'Disabled'}")),
-          );
-        }
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Invalid password"), backgroundColor: Colors.redAccent),
-          );
-        }
-      }
-    }
-  }
+  // --- BOTTOM SHEETS & DIALOGS ---
 
   void _showPersonalInformationBottomSheet(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
@@ -896,10 +817,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final nameController = TextEditingController(text: profile?.name);
     final ageController = TextEditingController(text: profile?.age.toString());
+    final phoneController = TextEditingController(text: profile?.phoneNo);
     final qualificationController = TextEditingController(text: profile?.qualification);
     final financialController = TextEditingController(text: profile?.financialDetails);
     final profilePicController = TextEditingController(text: profile?.profilePictureUrl);
     String? selectedGender = profile?.gender;
+
+    final _editFormKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
@@ -908,28 +832,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text("Update Profile", style: TextStyle(color: _primaryTeal, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildStyledTextField(nameController, "Name", Icons.person_outline),
-                _buildStyledTextField(ageController, "Age", Icons.calendar_today, keyboardType: TextInputType.number),
-                const SizedBox(height: 15),
-                DropdownButtonFormField<String>(
-                  value: ["Male", "Female", "Other"].contains(selectedGender) ? selectedGender : null,
-                  items: ["Male", "Female", "Other"].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
-                  onChanged: (val) => setDialogState(() => selectedGender = val),
-                  decoration: InputDecoration(
-                    labelText: "Gender",
-                    prefixIcon: const Icon(Icons.wc, color: _primaryTeal),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Form(
+              key: _editFormKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildStyledTextField(
+                    nameController, 
+                    "Name", 
+                    Icons.person_outline,
+                    maxLength: 20,
+                    validator: (value) => (value == null || value.isEmpty) ? "Required" : null,
                   ),
-                ),
-                const SizedBox(height: 15),
-                _buildStyledTextField(qualificationController, "Qualification", Icons.school_outlined),
-                _buildStyledTextField(financialController, "Financial Details", Icons.wallet_outlined),
-                _buildStyledTextField(profilePicController, "Profile Picture URL", Icons.image_outlined),
-              ],
+                  _buildStyledTextField(
+                    ageController, 
+                    "Age", 
+                    Icons.calendar_today, 
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Required';
+                      final age = int.tryParse(value);
+                      if (age == null) return 'Invalid number';
+                      if (age < 16) return 'Must be 16+';
+                      if (age > 120) return 'Invalid age';
+                      return null;
+                    },
+                  ),
+                  _buildStyledTextField(
+                    phoneController,
+                    "Phone Number",
+                    Icons.phone_android_outlined,
+                    keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Required';
+                      if (value.length != 10) return 'Enter 10 digits';
+                      return null;
+                    },
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  DropdownButtonFormField<String>(
+                    value: ["Male", "Female", "Other"].contains(selectedGender) ? selectedGender : null,
+                    items: ["Male", "Female", "Other"].map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                    onChanged: (val) => setDialogState(() => selectedGender = val),
+                    validator: (value) => value == null ? "Required" : null,
+                    decoration: InputDecoration(
+                      labelText: "Gender",
+                      prefixIcon: const Icon(Icons.wc, color: _primaryTeal),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  _buildStyledTextField(
+                    qualificationController, 
+                    "Qualification", 
+                    Icons.school_outlined,
+                  ),
+                  _buildStyledTextField(
+                    financialController, 
+                    "Financial Details", 
+                    Icons.wallet_outlined,
+                  ),
+                  _buildStyledTextField(profilePicController, "Profile Picture URL", Icons.image_outlined),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -939,10 +909,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
+                if (!_editFormKey.currentState!.validate()) return;
+                
                 if (profile == null) return;
                 final updatedProfile = profile.copyWith(
                   name: nameController.text,
                   age: int.tryParse(ageController.text) ?? profile.age,
+                  phoneNo: phoneController.text,
                   gender: selectedGender ?? profile.gender,
                   qualification: qualificationController.text,
                   financialDetails: financialController.text,
@@ -959,92 +932,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: const Text("Save Changes"),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStyledTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon, color: _primaryTeal, size: 20),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _primaryTeal.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: _primaryTeal, size: 22),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsItem(IconData icon, String title, {String? badge, VoidCallback? onTap}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: _primaryTeal),
-        title: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (badge != null)
-              Container(
-                margin: const EdgeInsets.only(right: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  badge,
-                  style: const TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
       ),
@@ -1152,12 +1039,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                   return;
                 }
-                if (pass.length < 6) {
+                
+                // Password Complexity Validation
+                if (pass.length < 8) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Password too short"), backgroundColor: Colors.redAccent),
+                    const SnackBar(content: Text("Password must be at least 8 characters"), backgroundColor: Colors.redAccent),
                   );
                   return;
                 }
+                if (!RegExp(r'[A-Z]').hasMatch(pass)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Password must contain at least one uppercase letter"), backgroundColor: Colors.redAccent),
+                  );
+                  return;
+                }
+                if (!RegExp(r'[0-9]').hasMatch(pass)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Password must contain at least one number"), backgroundColor: Colors.redAccent),
+                  );
+                  return;
+                }
+                if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(pass)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Password must contain at least one special character"), backgroundColor: Colors.redAccent),
+                  );
+                  return;
+                }
+
                 if (pass != confirm) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Passwords do not match"), backgroundColor: Colors.redAccent),
@@ -1213,6 +1121,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final dailyController = TextEditingController(text: profile.dailyLimit.toStringAsFixed(0));
     final monthlyController = TextEditingController(text: profile.monthlyLimit.toStringAsFixed(0));
+    final _limitsFormKey = GlobalKey<FormState>();
 
     showModalBottomSheet(
       context: context,
@@ -1229,57 +1138,125 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Expense Limits",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _primaryTeal),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                "Adjust your daily and monthly spending targets. These changes will reflect in your dashboard immediately.",
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-              const SizedBox(height: 25),
-              _buildStyledTextField(dailyController, "Daily Limit (₹)", Icons.today_outlined, keyboardType: TextInputType.number),
-              _buildStyledTextField(monthlyController, "Monthly Limit (₹)", Icons.calendar_month_outlined, keyboardType: TextInputType.number),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final dLimit = double.tryParse(dailyController.text) ?? profile.dailyLimit;
-                    final mLimit = double.tryParse(monthlyController.text) ?? profile.monthlyLimit;
-                    
-                    final updatedProfile = profile.copyWith(
-                      dailyLimit: dLimit,
-                      monthlyLimit: mLimit,
-                      updatedAt: DateTime.now(),
-                    );
-                    
-                    await authProvider.saveProfile(updatedProfile);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("Expense limits updated!"), backgroundColor: Colors.green),
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _primaryTeal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                  ),
-                  child: const Text("Save Changes", style: TextStyle(fontWeight: FontWeight.bold)),
+          child: Form(
+            key: _limitsFormKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Expense Limits",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: _primaryTeal),
                 ),
-              ),
-              const SizedBox(height: 10),
-            ],
+                const SizedBox(height: 10),
+                Text(
+                  "Adjust your daily and monthly spending targets. These changes will reflect in your dashboard immediately.",
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+                const SizedBox(height: 25),
+                _buildStyledTextField(
+                  dailyController, 
+                  "Daily Limit (₹)", 
+                  Icons.today_outlined, 
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return "Required";
+                    final n = double.tryParse(val);
+                    if (n == null || n <= 0) return "Min Amount";
+                    return null;
+                  },
+                ),
+                _buildStyledTextField(
+                  monthlyController, 
+                  "Monthly Limit (₹)", 
+                  Icons.calendar_month_outlined, 
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return "Required";
+                    final n = double.tryParse(val);
+                    if (n == null || n <= 0) return "Min Amount";
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      if (!_limitsFormKey.currentState!.validate()) return;
+
+                      final dLimit = double.tryParse(dailyController.text) ?? profile.dailyLimit;
+                      final mLimit = double.tryParse(monthlyController.text) ?? profile.monthlyLimit;
+                    
+                      final updatedProfile = profile.copyWith(
+                        dailyLimit: dLimit,
+                        monthlyLimit: mLimit,
+                        updatedAt: DateTime.now(),
+                      );
+                      
+                      await authProvider.saveProfile(updatedProfile);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Expense limits updated!"), backgroundColor: Colors.green),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryTeal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                    child: const Text("Save Changes", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+
+
+  void _showAddPointsDialog(BuildContext context, ProfileModel? profile, AuthProvider authProvider) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Add Points"),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: "Points to add", hintText: "e.g. 500"),
+          keyboardType: TextInputType.number,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              final pts = int.tryParse(controller.text) ?? 0;
+              if (pts > 0 && profile != null) {
+                final updatedProfile = profile.copyWith(
+                  lifetimePoints: (profile.lifetimePoints ?? 0) + pts,
+                  updatedAt: DateTime.now(),
+                );
+                await authProvider.saveProfile(updatedProfile);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("$pts points added!")),
+                  );
+                }
+              }
+            },
+            child: const Text("Add"),
+          ),
+        ],
       ),
     );
   }
@@ -1297,7 +1274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               builder: (context) => AlertDialog(
                 title: const Text("Log Out"),
                 content: const Text(
-                  "the data regarding to dream vault and savings will be deleted permanently and the money will be allocated to total balance. choose backup and logout incase of short term logout.else you can either choose to just logout or backup and logout",
+                  "Data regarding dream vaults and savings will be permanently deleted from this device unless backed up. Choose 'Backup & Logout' to sync with cloud, or 'Just Logout' to clear local data.",
                 ),
                 actions: [
                   TextButton(
@@ -1333,6 +1310,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
             side: const BorderSide(color: Colors.redAccent, width: 2),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           ),
+        ),
+      ),
+    );
+  }
+
+  // --- HELPER UI ---
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _primaryTeal.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: _primaryTeal, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStyledTextField(
+    TextEditingController controller, 
+    String label, 
+    IconData icon, 
+    {TextInputType? keyboardType, String? Function(String?)? validator, List<TextInputFormatter>? inputFormatters, int? maxLength}
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        validator: validator,
+        inputFormatters: inputFormatters,
+        maxLength: maxLength,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: _primaryTeal, size: 20),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
       ),
     );
