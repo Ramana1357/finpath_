@@ -168,7 +168,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
                 healthScore -= (sTarget - savingsPct) * 0.5;
               }
             } else {
-              healthScore = 100.0;
+              healthScore = 0.0;
             }
             
             healthScore = healthScore.clamp(0.0, 100.0);
@@ -328,7 +328,7 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
   }
 
   Widget _buildHealthScoreCard(double score, double savingsRate) {
-    Color scoreColor = score > 70 ? Colors.green : (score > 40 ? Colors.orange : Colors.red);
+    Color scoreColor = score > 70 ? Colors.green : (score > 40 ? Colors.orange : (score > 0 ? Colors.red : Colors.grey));
 
     String message = "";
     if (score > 80) {
@@ -337,6 +337,8 @@ class _InsightsScreenState extends State<InsightsScreen> with SingleTickerProvid
       message = "Good job. You're living within your means.";
     } else if (score > 0) {
       message = "Warning: Your expenses are high relative to your income.";
+    } else if (score == 0 && savingsRate == 0) {
+      message = "Start tracking your expenses to see your health score!";
     } else {
       message = "Critical: You are spending more than you earn.";
     }
