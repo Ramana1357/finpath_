@@ -84,10 +84,10 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
             SliverToBoxAdapter(child: _buildAppBar(context)),
             const SliverToBoxAdapter(child: DailyQuizCard()),
             const SliverToBoxAdapter(child: EducationalLinksWidget()),
-            SliverToBoxAdapter(child: _buildSectionHeader(context, "Opportunities for You", false)),
+            /*SliverToBoxAdapter(child: _buildSectionHeader(context, "Opportunities for You", false)),
             SliverToBoxAdapter(child: _buildOpportunitiesList(context)),
             SliverToBoxAdapter(child: _buildSectionHeader(context, "Active Scholarships", false)),
-            SliverToBoxAdapter(child: _buildScholarshipsList(context)),
+            SliverToBoxAdapter(child: _buildScholarshipsList(context)),*/
             SliverToBoxAdapter(child: _buildSectionHeader(context, "Financial Insights & Tips", false)),
             _buildDynamicSliverTipsList(context),
             const SliverPadding(padding: EdgeInsets.only(bottom: 30)),
@@ -424,116 +424,11 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
 
   // --- OPPORTUNITIES SECTION ---
 
-  Widget _buildOpportunitiesList(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final List<OpportunityModel> _opportunities = [
-      OpportunityModel(
-        title: "Software Development Intern", 
-        company: "TechNova Solutions", 
-        salaryOrBadge: "₹25,000/mo", 
-        type: "Intern", 
-        icon: Icons.work_outline,
-        url: "https://unstop.com/internships?search=software%20development",
-      ),
-      OpportunityModel(
-        title: "Data Analyst Intern", 
-        company: "FinServe", 
-        salaryOrBadge: "Remote", 
-        type: "Remote", 
-        icon: Icons.work_outline,
-        url: "https://unstop.com/internships?search=data%20analyst",
-      ),
-    ];
 
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        padding: const EdgeInsets.only(left: 20),
-        scrollDirection: Axis.horizontal,
-        itemCount: _opportunities.length,
-        itemBuilder: (context, index) {
-          final opp = _opportunities[index];
-          return GestureDetector(
-            onTap: () => _launchURL(opp.url),
-            child: Container(
-              width: 250,
-              margin: const EdgeInsets.only(right: 15),
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: colorScheme.surface, borderRadius: BorderRadius.circular(20)),
-              child: Row(
-                children: [
-                  CircleAvatar(backgroundColor: colorScheme.onSurface.withValues(alpha: 0.05), child: Icon(opp.icon, color: colorScheme.primary, size: 20)),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(opp.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        Text(opp.company, style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   // --- SCHOLARSHIPS SECTION ---
 
-  Widget _buildScholarshipsList(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final List<ScholarshipModel> _scholarships = [
-      ScholarshipModel(
-        title: "National Tech Scholarship", 
-        coverage: "Covers 50% Tuition", 
-        awardOrDeadline: "Closes in 5 Days", 
-        deadlineColor: colorScheme.error,
-        url: "https://www.buddy4study.com/national-scholarship-portal",
-      ),
-      ScholarshipModel(
-        title: "Women in STEM Grant", 
-        coverage: "₹50,000 Award", 
-        awardOrDeadline: "₹50,000 Award", 
-        deadlineColor: Colors.orange,
-        url: "https://www.buddy4study.com/scholarship/women-in-stem-scholarship",
-      ),
-    ];
 
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        padding: const EdgeInsets.only(left: 20),
-        scrollDirection: Axis.horizontal,
-        itemCount: _scholarships.length,
-        itemBuilder: (context, index) {
-          final sch = _scholarships[index];
-          return GestureDetector(
-            onTap: () => _launchURL(sch.url),
-            child: Container(
-              width: 250,
-              margin: const EdgeInsets.only(right: 15),
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(color: colorScheme.surface, borderRadius: BorderRadius.circular(20)),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(sch.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 5),
-                  Text(sch.coverage, style: TextStyle(color: sch.deadlineColor, fontSize: 11, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
 class EducationalLinksWidget extends StatelessWidget {
